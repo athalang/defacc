@@ -1,0 +1,92 @@
+[
+  {
+    "c_code": "int a, b;\nscanf(\"%d%d\", &a, &b);",
+    "rust_code": "use std::io::{self, BufRead};\nlet mut input = String::new();\nio::stdin().read_line(&mut input).unwrap();\nlet nums: Vec<i32> = input.split_whitespace()\n    .map(|s| s.parse().unwrap())\n    .collect();\nlet (a, b) = (nums[0], nums[1]);",
+    "categories": ["I/O"],
+    "description": "Reading two integers from stdin using scanf"
+  },
+  {
+    "c_code": "int x;\nscanf(\"%d\", &x);",
+    "rust_code": "use std::io::{self, BufRead};\nlet mut input = String::new();\nio::stdin().read_line(&mut input).unwrap();\nlet x: i32 = input.trim().parse().unwrap();",
+    "categories": ["I/O"],
+    "description": "Reading a single integer from stdin"
+  },
+  {
+    "c_code": "printf(\"%d\\n\", result);",
+    "rust_code": "println!(\"{}\", result);",
+    "categories": ["I/O"],
+    "description": "Printing an integer to stdout"
+  },
+  {
+    "c_code": "int *arr = (int*)malloc(n * sizeof(int));",
+    "rust_code": "let mut arr: Vec<i32> = Vec::with_capacity(n);",
+    "categories": ["Pointers"],
+    "description": "Allocating dynamic array with malloc"
+  },
+  {
+    "c_code": "int *p = malloc(sizeof(int));\n*p = 42;\nfree(p);",
+    "rust_code": "let p = Box::new(42);\n// Box automatically deallocates when it goes out of scope",
+    "categories": ["Pointers"],
+    "description": "Allocating and freeing a single integer"
+  },
+  {
+    "c_code": "int arr[100];\nfor (int i = 0; i < n; i++) {\n    arr[i] = i;\n}",
+    "rust_code": "let mut arr = [0; 100];\nfor i in 0..n {\n    arr[i as usize] = i;\n}",
+    "categories": ["Array"],
+    "description": "Array indexing with integer loop variable"
+  },
+  {
+    "c_code": "int idx = 5;\nint val = arr[idx];",
+    "rust_code": "let idx = 5;\nlet val = arr[idx as usize];",
+    "categories": ["Array"],
+    "description": "Array access with integer index"
+  },
+  {
+    "c_code": "long long result = (long long)a * b;",
+    "rust_code": "let result = (a as i64) * (b as i64);",
+    "categories": ["Mixtype"],
+    "description": "Casting to long long for multiplication"
+  },
+  {
+    "c_code": "int x = 5;\nfloat y = (float)x / 2;",
+    "rust_code": "let x = 5;\nlet y = (x as f32) / 2.0;",
+    "categories": ["Mixtype"],
+    "description": "Mixed integer and float arithmetic"
+  },
+  {
+    "c_code": "char c = (char)65;",
+    "rust_code": "let c = 65u8 as char;",
+    "categories": ["Mixtype"],
+    "description": "Integer to char conversion"
+  },
+  {
+    "c_code": "int arr[100];\nint *p = arr;\nfor (int i = 0; i < n; i++) {\n    *(p + i) = i;\n}",
+    "rust_code": "let mut arr = [0; 100];\nfor i in 0..n {\n    arr[i as usize] = i as i32;\n}",
+    "categories": ["Pointers", "Array"],
+    "description": "Pointer arithmetic for array access"
+  },
+  {
+    "c_code": "int a, b, c;\nscanf(\"%d%d%d\", &a, &b, &c);\nprintf(\"%d\\n\", a + b + c);",
+    "rust_code": "use std::io::{self, BufRead};\nlet mut input = String::new();\nio::stdin().read_line(&mut input).unwrap();\nlet nums: Vec<i32> = input.split_whitespace()\n    .map(|s| s.parse().unwrap())\n    .collect();\nlet (a, b, c) = (nums[0], nums[1], nums[2]);\nprintln!(\"{}\" , a + b + c);",
+    "categories": ["I/O"],
+    "description": "Reading multiple integers and computing sum"
+  },
+  {
+    "c_code": "int n = 10;\nint *arr = calloc(n, sizeof(int));",
+    "rust_code": "let n = 10;\nlet arr = vec![0; n];",
+    "categories": ["Pointers"],
+    "description": "Zero-initialized array allocation with calloc"
+  },
+  {
+    "c_code": "int arr[10] = {0};\nfor (int i = 0; i < 10; i++) {\n    printf(\"%d \", arr[i]);\n}",
+    "rust_code": "let arr = [0; 10];\nfor i in 0..10 {\n    print!(\"{} \", arr[i]);\n}",
+    "categories": ["Array", "I/O"],
+    "description": "Iterating and printing array elements"
+  },
+  {
+    "c_code": "unsigned int x = 5;\nint y = (int)x;",
+    "rust_code": "let x: u32 = 5;\nlet y = x as i32;",
+    "categories": ["Mixtype"],
+    "description": "Converting between signed and unsigned integers"
+  }
+]
