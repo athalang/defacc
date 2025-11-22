@@ -5,6 +5,6 @@ description = "placeholder"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "litellm>=1.0.0",
+    "dspy>=0.1.4",
     "pydantic-settings>=2.0.0",
 ]

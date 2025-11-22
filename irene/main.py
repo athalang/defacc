@@ -1,8 +1,3 @@
-"""IRENE: Integrating Rules and Semantics for LLM-Based C-to-Rust Translation.
-
-Main pipeline orchestration for the IRENE framework.
-"""
-
 import dspy
 from typing import Optional
 
@@ -11,24 +6,13 @@ from retriever import ExampleRetriever, format_examples
 from compiler import RustCompiler, check_rustc_available
 from dspy_modules import IRENEModules
 
-
 class IRENEPipeline:
-    """Main IRENE pipeline for C-to-Rust translation."""
-
     def __init__(
         self,
         lm_model: Optional[dspy.LM] = None,
         corpus_path: str = "irene/corpus/examples.json",
         max_refinement_iterations: int = 3,
     ):
-        """
-        Initialize the IRENE pipeline.
-
-        Args:
-            lm_model: DSPy language model to use (if None, must be configured separately)
-            corpus_path: Path to the translation examples corpus
-            max_refinement_iterations: Maximum number of refinement attempts
-        """
         self.max_iterations = max_refinement_iterations
 
         # Initialize components

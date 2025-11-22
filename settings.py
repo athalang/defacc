@@ -1,10 +1,11 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     model: str
     temperature: float
-    max_tokens: int
-    api_base: str
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
 
     class Config:
         env_file = ".env"
