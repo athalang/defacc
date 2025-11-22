@@ -170,8 +170,7 @@ print(f"Compiled: {result['compiled']}")
 
 ```
 .
-├── main.py                 # Convenience wrapper - runs demo/tests
-├── demo.py                 # Quick demo script
+├── main.py                 # Entry point - runs demo/tests
 ├── .env.example            # Example configuration template
 ├── pyproject.toml          # Project metadata and dependencies (uv)
 ├── uv.lock                 # Locked dependency versions
