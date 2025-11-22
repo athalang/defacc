@@ -140,16 +140,17 @@ This will output metrics including:
 import dspy
 from defacc.irene.pipeline import IRENEPipeline
 
-# Configure LLM
+# 1. Configure LLM
 lm = dspy.LM(
     model='anthropic/claude-3-5-sonnet-20241022',
     api_key='your-api-key-here'
 )
+dspy.configure(lm=lm)
 
-# Create pipeline
+# 2. Create pipeline
 pipeline = IRENEPipeline(lm=lm)
 
-# Translate C code
+# 3. Translate C code
 c_code = """
 #include <stdio.h>
 int main() {

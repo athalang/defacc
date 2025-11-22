@@ -131,6 +131,7 @@ lm = dspy.LM(
     model='anthropic/claude-3-5-sonnet-20241022',
     api_key='your-key-here'
 )
+dspy.configure(lm=lm)
 
 # 2. Create pipeline
 pipeline = IRENEPipeline(lm=lm)

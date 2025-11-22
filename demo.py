@@ -25,6 +25,7 @@ if __name__ == "__main__":
             temperature=settings.temperature,
             api_key=settings.api_key,
         )
+        dspy.configure(lm=lm)
         pipeline = IRENEPipeline(lm=lm)
         run_all_tests(pipeline)
     else:
@@ -36,5 +37,6 @@ if __name__ == "__main__":
             temperature=settings.temperature,
             api_key=settings.api_key,
         )
+        dspy.configure(lm=lm)
         pipeline = IRENEPipeline(lm=lm)
         run_demo(pipeline, test_name)

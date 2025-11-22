@@ -19,12 +19,11 @@ class IRENEPipeline:
         self.rule_analyzer = StaticRuleAnalyzer()
         self.retriever = ExampleRetriever(corpus_path)
         self.compiler = RustCompiler()
-        
-        # Configure DSPy with the LM
+
+        # Store LM instance (caller should configure DSPy before creating pipeline)
         self.lm = lm
-        dspy.configure(lm=self.lm)
-        
-        # Initialize DSPy modules after configuration
+
+        # Initialize DSPy modules
         self.modules = IRENEModules()
 
         # Check if rustc is available
