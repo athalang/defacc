@@ -9,9 +9,8 @@ from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
-from defacc.irene.pipeline import IRENEPipeline
-from defacc.irene.tests.test_paper_examples import ALL_TEST_CASES
-
+from irene.pipeline import IRENEPipeline
+from irene.tests.test_paper_examples import ALL_TEST_CASES
 
 @solver
 def translate_c_to_rust():
@@ -29,7 +28,7 @@ def translate_c_to_rust():
         c_code = ALL_TEST_CASES[test_name]
 
         # Initialize pipeline (using the LLM from state)
-        from defacc.settings import settings
+        from settings import settings
         import dspy
 
         lm = dspy.LM(

@@ -8,7 +8,7 @@ from rank_bm25 import BM25Okapi
 class TranslationExample:
     c_code: str
     rust_code: str
-    categories: List[str]  # ["I/O", "Array", etc.]
+    categories: List[str]
     description: str
 
 class ExampleRetriever:
@@ -88,7 +88,6 @@ class ExampleRetriever:
         scored_examples.sort(key=lambda x: x[0], reverse=True)
 
         return [ex for _, ex in scored_examples[:top_k]]
-
 
 def format_examples(examples: List[TranslationExample]) -> str:
     """Format retrieved examples for the LLM."""
