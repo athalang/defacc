@@ -13,7 +13,7 @@ def main(args):
         api_key=settings.api_key,
     )
     dspy.configure(lm=lm)
-    pipeline = IRENEPipeline(lm=lm)
+    pipeline = IRENEPipeline()
 
     if args.all:
         run_all_tests(pipeline)
