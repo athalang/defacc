@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
 Convenience wrapper for running IRENE from project root.
-Delegates to defacc.main module.
+Delegates to main module.
 """
 
 if __name__ == "__main__":
     import argparse
     import dspy
-    from defacc.settings import settings
-    from defacc.pipeline import IRENEPipeline
-    from defacc.demo import run_demo, run_all_tests
-    from defacc.tests.test_paper_examples import ALL_TEST_CASES
+    from irene.settings import settings
+    from irene.pipeline import IRENEPipeline
+    from irene.demo import run_demo, run_all_tests
+    from irene.tests.test_paper_examples import ALL_TEST_CASES
 
     parser = argparse.ArgumentParser(description="IRENE C-to-Rust Translation Demo")
     parser.add_argument(
