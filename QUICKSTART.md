@@ -126,7 +126,7 @@ IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safet
 
 ```bash
 # Run all test cases through eval framework
-inspect eval src/defacc/evals/c_to_rust.py@all_tests_eval
+inspect eval src/defacc/evals/c_to_rust.py@all_tests
 
 # View results in web UI
 inspect view

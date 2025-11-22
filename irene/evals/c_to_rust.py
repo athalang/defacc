@@ -10,7 +10,7 @@ from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
 from irene.pipeline import IRENEPipeline
-from irene.tests.test_paper_examples import ALL_TEST_CASES
+from irene.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
 
 
 @solver
@@ -77,12 +77,12 @@ def compilation_success():
 
 
 @task
-def scanf_two_ints_eval():
+def scanf_two_ints():
     """
     Simple eval task for the scanf_two_ints test case.
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@scanf_two_ints_eval
+        inspect eval irene/evals/c_to_rust.py@scanf_two_ints
     """
     return Task(
         dataset=[
@@ -99,12 +99,12 @@ def scanf_two_ints_eval():
 
 
 @task
-def all_tests_eval():
+def all_tests():
     """
-    Eval task for all test cases.
+    Eval task for all test cases (basic + adversarial).
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@all_tests_eval
+        inspect eval irene/evals/c_to_rust.py@all_tests
     """
     samples = [
         Sample(
@@ -114,6 +114,66 @@ def all_tests_eval():
             metadata={"category": "unknown"}  # TODO: add category metadata
         )
         for test_name in ALL_TEST_CASES.keys()
+    ]
+
+    return Task(
+        dataset=samples,
+        solver=translate_c_to_rust(),
+        scorer=compilation_success()
+    )
+
+
+@task
+def basic_tests():
+    """
+    Eval task for basic test cases only (original 7 examples).
+
+    Usage:
+        inspect eval irene/evals/c_to_rust.py@basic_tests
+    """
+    samples = [
+        Sample(
+            input=test_name,
+            target="compiled",
+            id=test_name,
+            metadata={"category": "basic"}
+        )
+        for test_name in BASIC_TEST_CASES.keys()
+    ]
+
+    return Task(
+        dataset=samples,
+        solver=translate_c_to_rust(),
+        scorer=compilation_success()
+    )
+
+
+@task
+def adversarial_tests():
+    """
+    Eval task for adversarial test cases (security vulnerabilities).
+
+    These test cases contain common C vulnerabilities:
+    - Buffer overflows
+    - Use-after-free
+    - Integer overflows
+    - NULL pointer dereferences
+    - Uninitialized memory
+    - Format string vulnerabilities
+
+    IRENE's defensive mechanisms should prevent these from becoming unsafe Rust code.
+
+    Usage:
+        inspect eval irene/evals/c_to_rust.py@adversarial_tests
+    """
+    samples = [
+        Sample(
+            input=test_name,
+            target="compiled",
+            id=test_name,
+            metadata={"category": "adversarial"}
+        )
+        for test_name in ADVERSARIAL_TEST_CASES.keys()
     ]
 
     return Task(

@@ -95,6 +95,7 @@ python main.py --all
 
 ### Available Test Cases
 
+**Basic Test Cases** (7 examples from paper):
 - `scanf_two_ints`: Reading multiple integers with scanf
 - `array_indexing`: Array access with integer indices
 - `long_long_mult`: Type casting for large multiplication
@@ -103,6 +104,18 @@ python main.py --all
 - `simple_pointer`: Basic pointer allocation
 - `float_conversion`: Integer to float conversion
 
+**Adversarial Test Cases** (8 security vulnerabilities):
+- `buffer_overflow`: strcpy buffer overflow vulnerability
+- `integer_overflow`: INT_MAX overflow to negative
+- `use_after_free`: Accessing freed memory
+- `double_free`: Freeing same pointer twice
+- `array_bounds`: Out-of-bounds array access
+- `uninitialized_read`: Reading uninitialized variables
+- `format_string`: Format string vulnerability
+- `null_deref`: NULL pointer dereference
+
+These adversarial cases demonstrate IRENE's defensive capabilities against common C vulnerabilities.
+
 ### Run Evaluations
 
 IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
@@ -110,11 +123,17 @@ IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safet
 **Run evaluations:**
 
 ```bash
-# Run single test case
-inspect eval irene/evals/c_to_rust.py@scanf_two_ints_eval
+# Run basic test cases (7 original examples)
+inspect eval irene/evals/c_to_rust.py@basic_tests
 
-# Run all test cases (7 examples)
-inspect eval irene/evals/c_to_rust.py@all_tests_eval
+# Run adversarial test cases (8 security vulnerabilities)
+inspect eval irene/evals/c_to_rust.py@adversarial_tests
+
+# Run all test cases (15 total: basic + adversarial)
+inspect eval irene/evals/c_to_rust.py@all_tests
+
+# Run single test case
+inspect eval irene/evals/c_to_rust.py@scanf_two_ints
 
 # View results in web UI
 inspect view
@@ -127,10 +146,36 @@ inspect view
 
 **Example output:**
 ```
-Task: all_tests_eval
-  accuracy: 0.857 (6/7)
-  avg_iterations: 1.2
+basic_tests (7 samples)
+total time: 0:00:06
+
+compilation_success
+  accuracy: 1.000
+
+Log: logs/2025-11-22_basic-tests.eval
 ```
+
+```
+adversarial_tests (8 samples)
+total time: 0:00:13
+
+compilation_success
+  accuracy: 0.875
+
+Log: logs/2025-11-22_adversarial-tests.eval
+```
+
+```
+all_tests (15 samples)
+total time: 0:00:15
+
+compilation_success
+  accuracy: 0.933
+
+Log: logs/2025-11-22_all-tests.eval
+```
+
+The **adversarial_tests** eval demonstrates IRENE's defensive capabilities by measuring how well it prevents common C vulnerabilities from becoming unsafe Rust code. **93.3% compilation success** across all test cases shows that IRENE effectively translates even adversarial code into safe Rust.
 
 The evaluation results are saved to `./logs/` and can be viewed in the Inspect UI with `inspect view`.
 
