@@ -13,42 +13,74 @@ IRENE improves upon vanilla LLM-based translation through three key modules:
 ## Architecture
 
 ```
-C Code → Static Rule Analyzer → Rule Hints
-           ↓
-       BM25 Retrieval (intra-category) → Examples
-           ↓
-       Structured Summarizer → Summary
-           ↓
-       [Hints + Examples + Summary] → LLM → Rust Code
-           ↓
+C Code -> Static Rule Analyzer -> Rule Hints
+           |
+       BM25 Retrieval (intra-category) -> Examples
+           |
+       Structured Summarizer -> Summary
+           |
+       [Hints + Examples + Summary] -> LLM -> Rust Code
+           |
        rustc compile
-           ↓
-       (if errors) → Refiner → Loop
+           |
+       (if errors) -> Refiner -> Loop
 ```
 
 ## Setup
 
-### 1. Install Dependencies
+### 1. Install uv
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# Install uv (fast Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2. Install Rust (for compilation validation)
+### 2. Install Dependencies
+
+```bash
+# Sync dependencies (creates venv and installs packages)
+uv sync
+
+# Activate the virtual environment
+source .venv/bin/activate
+```
+
+### 3. Install Rust (for compilation validation)
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### 3. Configure LLM
+### 4. Configure LLM
 
-Set your API key for one of the supported providers:
+Create a `.env` file from the example template:
 
 ```bash
-# Anthropic Claude (recommended)
-export ANTHROPIC_API_KEY='your-key-here'
+cp .env.example .env
+```
+
+Then edit `.env` with your LLM configuration. Choose one:
+
+**Anthropic Claude (recommended):**
+```bash
+MODEL=anthropic/claude-3-5-sonnet-20241022
+TEMPERATURE=0.7
+API_KEY=sk-ant-your-key-here
+```
+
+**OpenAI GPT-4:**
+```bash
+MODEL=openai/gpt-4
+TEMPERATURE=0.7
+API_KEY=sk-your-openai-key
+```
+
+**Local Ollama:**
+```bash
+MODEL=ollama/mistral
+TEMPERATURE=0.7
+API_BASE=http://localhost:11434
+```
 
 # Or OpenAI
 export OPENAI_API_KEY='your-key-here'
@@ -61,17 +93,16 @@ export IRENE_MODEL='ollama/mistral'
 
 ### Quick Demo
 
-Run a single test case:
+Run a single test case from the project root:
 
 ```bash
-cd irene
-python demo.py --test scanf_two_ints
+python main.py --test scanf_two_ints
 ```
 
 ### Run All Tests
 
 ```bash
-python demo.py --all
+python main.py --all
 ```
 
 ### Available Test Cases
@@ -88,13 +119,16 @@ python demo.py --all
 
 ```python
 import dspy
-from irene.main import IRENEPipeline
+from irene.pipeline import IRENEPipeline
 
 # Configure LLM
-lm = dspy.LM('anthropic/claude-3-5-sonnet-20241022')
+lm = dspy.LM(
+    model='anthropic/claude-3-5-sonnet-20241022',
+    api_key='your-api-key-here'
+)
 
 # Create pipeline
-pipeline = IRENEPipeline(lm_model=lm)
+pipeline = IRENEPipeline(lm=lm)
 
 # Translate C code
 c_code = """
@@ -115,17 +149,23 @@ print(f"Compiled: {result['compiled']}")
 ## Project Structure
 
 ```
-irene/
-├── main.py              # IRENE pipeline orchestration
-├── dspy_modules.py      # DSPy signatures (Summarizer, Translator, Refiner)
-├── rule_analyzer.py     # Static C code analysis
-├── retriever.py         # BM25-based example retrieval
-├── compiler.py          # rustc wrapper
-├── demo.py              # Demo script
-├── corpus/
-│   └── examples.json    # C→Rust translation examples (15 pairs)
-└── tests/
-    └── test_paper_examples.py  # Test cases from paper
+.
+├── main.py                 # Entry point - runs demo/tests
+├── settings.py             # Pydantic settings from .env
+├── .env.example            # Example configuration template
+├── pyproject.toml          # Project metadata and dependencies (uv)
+├── uv.lock                 # Locked dependency versions
+└── irene/
+    ├── pipeline.py         # IRENE pipeline orchestration
+    ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
+    ├── rule_analyzer.py    # Static C code analysis
+    ├── retriever.py        # BM25-based example retrieval
+    ├── compiler.py         # rustc wrapper with robust LLM output handling
+    ├── demo.py             # Demo and test runner functions
+    ├── corpus/
+    │   └── examples.json   # C->Rust translation examples (15 pairs)
+    └── tests/
+        └── test_paper_examples.py  # Test cases from paper
 ```
 
 ## Components
@@ -134,14 +174,14 @@ irene/
 
 Detects C patterns using regex:
 
-- **I/O**: `scanf`, `printf`  suggest `read_to_string` + parsing
-- **Pointers**: `malloc`, pointer arithmetic  suggest `Vec`, `Box`
-- **Array**: array indexing  suggest `as usize` casts
-- **Mixtype**: type casts  suggest explicit Rust conversions
+- **I/O**: `scanf`, `printf` -> suggest `read_to_string` + parsing
+- **Pointers**: `malloc`, pointer arithmetic -> suggest `Vec`, `Box`
+- **Array**: array indexing -> suggest `as usize` casts
+- **Mixtype**: type casts -> suggest explicit Rust conversions
 
 ### Example Corpus (`corpus/examples.json`)
 
-15 hand-crafted CRust translation pairs covering:
+15 hand-crafted C->Rust translation pairs covering:
 - Standard I/O operations
 - Memory allocation patterns
 - Array access patterns
@@ -172,7 +212,7 @@ Three Chain-of-Thought modules:
 
 ## Key Translation Patterns
 
-### I/O: scanf  read_line + parse
+### I/O: scanf -> read_line + parse
 
 ```c
 scanf("%d%d", &a, &b);
@@ -186,7 +226,7 @@ let nums: Vec<i32> = input.split_whitespace()
 let (a, b) = (nums[0], nums[1]);
 ```
 
-### Array: int index  usize cast
+### Array: int index -> usize cast
 
 ```c
 arr[i]  // i is int
@@ -196,7 +236,7 @@ arr[i]  // i is int
 arr[i as usize]
 ```
 
-### Pointers: malloc  Vec/Box
+### Pointers: malloc -> Vec/Box
 
 ```c
 int *arr = malloc(n * sizeof(int));
@@ -222,10 +262,19 @@ let result = (x as i64) * (y as i64);
 
 ```python
 pipeline = IRENEPipeline(
-    lm_model=lm,                              # DSPy language model
-    corpus_path="irene/corpus/examples.json", # Path to examples
+    lm=lm,                                    # DSPy language model instance
+    corpus_path="irene/corpus/examples.json", # Path to examples corpus
     max_refinement_iterations=3,              # Max compile-fix loops
 )
+```
+
+### Settings (via .env file)
+
+```bash
+MODEL=anthropic/claude-3-5-sonnet-20241022  # Model identifier for DSPy
+TEMPERATURE=0.7                               # LLM temperature (0.0-1.0)
+API_BASE=http://localhost:8000/v1            # Optional: Custom API endpoint
+API_KEY=your-api-key                         # API key for the LLM provider
 ```
 
 ## Extending IRENE

@@ -5,44 +5,75 @@ Get started with IRENE in 5 minutes!
 ## Prerequisites
 
 1. Python 3.8+
-2. Rust (optional, for compilation validation)
-3. API key for Anthropic or OpenAI
+2. [uv](https://docs.astral.sh/uv/) - Fast Python package manager
+3. Rust (optional, for compilation validation)
+4. LLM access (Anthropic, OpenAI, or local via Ollama/vLLM)
 
 ## Installation
 
 ```bash
-# 1. Activate virtual environment (already created)
+# 1. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Sync dependencies (creates venv and installs packages)
+uv sync
+
+# 3. Activate the virtual environment
 source .venv/bin/activate
 
-# 2. Verify installation
-python -c "import dspy; print('✓ DSPy installed')"
-python -c "import pycparser; print('✓ pycparser installed')"
-python -c "import rank_bm25; print('✓ BM25 installed')"
+# 4. Verify installation
+python -c "import dspy; print('DSPy installed')"
+python -c "import pydantic_settings; print('Pydantic installed')"
+python -c "import rank_bm25; print('BM25 installed')"
 
-# 3. Check Rust (optional)
+# 5. Check Rust (optional)
 rustc --version
 ```
 
-## Set Your API Key
-
-Choose one:
+## Configure Your LLM
 
 ```bash
-# Option 1: Anthropic Claude (recommended for accuracy)
-export ANTHROPIC_API_KEY='sk-ant-...'
+# 1. Copy the example config
+cp .env.example .env
 
-# Option 2: OpenAI GPT-4
-export OPENAI_API_KEY='sk-...'
+# 2. Edit .env with your settings
+# Choose one configuration:
+```
 
-# Or configure a local model
-export IRENE_MODEL='ollama/mistral'
+**Option 1: Anthropic Claude (recommended)**
+```bash
+MODEL=anthropic/claude-3-5-sonnet-20241022
+TEMPERATURE=0.7
+API_KEY=sk-ant-your-key-here
+```
+
+**Option 2: OpenAI GPT-4**
+```bash
+MODEL=openai/gpt-4
+TEMPERATURE=0.7
+API_KEY=sk-your-key-here
+```
+
+**Option 3: Local Model (Ollama)**
+```bash
+MODEL=ollama/mistral
+TEMPERATURE=0.7
+API_BASE=http://localhost:11434
+```
+
+**Option 4: Self-hosted vLLM**
+```bash
+MODEL=hosted_vllm/Qwen/Qwen3-Coder-30B-A3B-Instruct
+TEMPERATURE=0.7
+API_BASE=http://127.0.0.1:8000/v1
+API_KEY=PLACEHOLDER
 ```
 
 ## Run Your First Translation
 
 ```bash
-cd irene
-python demo.py --test scanf_two_ints
+# From the project root directory
+python main.py
 ```
 
 You should see:
@@ -65,26 +96,44 @@ Step 4: Translating to Rust...
   Initial translation complete
 
 Step 5: Compiling and refining...
-  ✓ Compilation successful after 1 iteration(s)!
+  Compilation successful after 1 iteration(s)!
 ```
 
 ## Test All Examples
 
 ```bash
-python demo.py --all
+python main.py --all
+```
+
+## Available Test Cases
+
+- `scanf_two_ints` - Reading multiple integers with scanf (default)
+- `array_indexing` - Array access with integer indices
+- `long_long_mult` - Type casting for large multiplication
+- `malloc_array` - Dynamic array allocation with malloc
+- `mixed_io_array` - Combined I/O and array operations
+- `simple_pointer` - Basic pointer allocation
+- `float_conversion` - Integer to float conversion
+
+Run a specific test:
+```bash
+python main.py --test array_indexing
 ```
 
 ## Use in Your Code
 
 ```python
 import dspy
-from irene import IRENEPipeline
+from irene.pipeline import IRENEPipeline
 
 # 1. Configure LLM
-lm = dspy.LM('anthropic/claude-3-5-sonnet-20241022')
+lm = dspy.LM(
+    model='anthropic/claude-3-5-sonnet-20241022',
+    api_key='your-key-here'
+)
 
 # 2. Create pipeline
-pipeline = IRENEPipeline(lm_model=lm)
+pipeline = IRENEPipeline(lm=lm)
 
 # 3. Translate
 c_code = """
@@ -94,16 +143,20 @@ for (int i = 0; i < 10; i++) {
 }
 """
 
-result = pipeline.translate(c_code)
+result = pipeline.translate(c_code, verbose=True)
 print(result['rust_code'])
+print(f"Compiled successfully: {result['compiled']}")
 ```
 
 ## Troubleshooting
 
 ### "No module named 'dspy'"
 ```bash
+# Reinstall dependencies
+uv sync
+
+# Make sure venv is activated
 source .venv/bin/activate
-pip install -r requirements.txt
 ```
 
 ### "rustc not found"
@@ -113,21 +166,24 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
 
-### "No API keys found"
+### "Missing configuration"
 ```bash
-# Set your key
-export ANTHROPIC_API_KEY='your-key'
+# Create .env file from example
+cp .env.example .env
 
-# Or create .env file
-echo "ANTHROPIC_API_KEY=your-key" > .env
-python -c "from dotenv import load_dotenv; load_dotenv()"
+# Then edit .env with your settings:
+# MODEL=anthropic/claude-3-5-sonnet-20241022
+# API_KEY=sk-ant-your-key-here
+# TEMPERATURE=0.7
 ```
 
 ### "Corpus file not found"
 ```bash
 # Make sure you're in the project root
 cd /path/to/defacc
-python irene/demo.py
+python main.py
+
+# The corpus should be at: irene/corpus/examples.json
 ```
 
 ## Next Steps
