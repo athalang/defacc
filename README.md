@@ -114,22 +114,60 @@ python main.py --all
 - `simple_pointer`: Basic pointer allocation
 - `float_conversion`: Integer to float conversion
 
+### Run Evaluations
+
+IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
+
+**Setup:**
+```bash
+# Dependencies are already included in pyproject.toml
+uv sync
+```
+
+**Run evaluations:**
+
+```bash
+# Run single test case
+inspect eval src/defacc/irene/evals/c_to_rust.py@scanf_two_ints_eval
+
+# Run all test cases (7 examples)
+inspect eval src/defacc/irene/evals/c_to_rust.py
+
+# View results in web UI
+inspect view
+```
+
+**Metrics reported:**
+- **Accuracy**: Percentage of translations that compiled successfully
+- **Iterations**: Number of refinement loops needed per example
+- **Error details**: Compiler errors for failed translations (in logs)
+
+**Example output:**
+```
+Task: all_tests_eval
+  accuracy: 0.857 (6/7)
+  avg_iterations: 1.2
+```
+
+The evaluation results are saved to `./logs/` and can be viewed in the Inspect UI with `inspect view`.
+
 ### Programmatic Usage
 
 ```python
 import dspy
-from irene.pipeline import IRENEPipeline
+from defacc.irene.pipeline import IRENEPipeline
 
-# Configure LLM
+# 1. Configure LLM
 lm = dspy.LM(
     model='anthropic/claude-3-5-sonnet-20241022',
     api_key='your-api-key-here'
 )
+dspy.configure(lm=lm)
 
-# Create pipeline
+# 2. Create pipeline
 pipeline = IRENEPipeline(lm=lm)
 
-# Translate C code
+# 3. Translate C code
 c_code = """
 #include <stdio.h>
 int main() {
@@ -150,21 +188,26 @@ print(f"Compiled: {result['compiled']}")
 ```
 .
 ├── main.py                 # Entry point - runs demo/tests
-├── settings.py             # Pydantic settings from .env
 ├── .env.example            # Example configuration template
 ├── pyproject.toml          # Project metadata and dependencies (uv)
 ├── uv.lock                 # Locked dependency versions
-└── irene/
-    ├── pipeline.py         # IRENE pipeline orchestration
-    ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
-    ├── rule_analyzer.py    # Static C code analysis
-    ├── retriever.py        # BM25-based example retrieval
-    ├── compiler.py         # rustc wrapper with robust LLM output handling
-    ├── demo.py             # Demo and test runner functions
-    ├── corpus/
-    │   └── examples.json   # C->Rust translation examples (15 pairs)
-    └── tests/
-        └── test_paper_examples.py  # Test cases from paper
+└── src/
+    └── defacc/
+        ├── settings.py     # Pydantic settings from .env
+        ├── main.py         # Main entry point module
+        └── irene/
+            ├── pipeline.py         # IRENE pipeline orchestration
+            ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
+            ├── rule_analyzer.py    # Static C code analysis
+            ├── retriever.py        # BM25-based example retrieval
+            ├── compiler.py         # rustc wrapper with robust LLM output handling
+            ├── demo.py             # Demo and test runner functions
+            ├── corpus/
+            │   └── examples.json   # C->Rust translation examples (15 pairs)
+            ├── evals/
+            │   └── c_to_rust.py    # Inspect AI evaluation tasks
+            └── tests/
+                └── test_paper_examples.py  # Test cases from paper
 ```
 
 ## Components
@@ -261,9 +304,9 @@ let result = (x as i64) * (y as i64);
 
 ```python
 pipeline = IRENEPipeline(
-    lm=lm,                                    # DSPy language model instance
-    corpus_path="irene/corpus/examples.json", # Path to examples corpus
-    max_refinement_iterations=3,              # Max compile-fix loops
+    lm=lm,                                                    # DSPy language model instance
+    corpus_path="src/defacc/irene/corpus/examples.json",      # Path to examples corpus (from project root)
+    max_refinement_iterations=3,                              # Max compile-fix loops
 )
 ```
 

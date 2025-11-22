@@ -1,3 +1,4 @@
+import os
 import dspy
 
 from .rule_analyzer import StaticRuleAnalyzer, format_hints
@@ -9,7 +10,7 @@ class IRENEPipeline:
     def __init__(
         self,
         lm: dspy.LM,
-        corpus_path: str = "irene/corpus/examples.json",
+        corpus_path=os.path.join(os.path.dirname(__file__), "corpus/examples.json"),
         max_refinement_iterations: int = 3,
     ):
         self.max_iterations = max_refinement_iterations
@@ -18,11 +19,12 @@ class IRENEPipeline:
         self.rule_analyzer = StaticRuleAnalyzer()
         self.retriever = ExampleRetriever(corpus_path)
         self.compiler = RustCompiler()
-        self.modules = IRENEModules()
 
-        # Set up DSPy LM
-        if lm:
-            dspy.settings.configure(lm=lm)
+        # Store LM instance (caller should configure DSPy before creating pipeline)
+        self.lm = lm
+
+        # Initialize DSPy modules
+        self.modules = IRENEModules()
 
         # Check if rustc is available
         if not check_rustc_available():
