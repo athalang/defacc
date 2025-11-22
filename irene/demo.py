@@ -10,32 +10,62 @@ def run_demo(pipeline, test_name: str = "scanf_two_ints"):
     c_code = ALL_TEST_CASES[test_name]
 
     print(f"Running test case: {test_name}")
-    print("Input C code:\n")
+    print()
+    print("Input C code:")
+    print("-" * 80)
     print(c_code)
+    print("-" * 80)
+    print()
 
     result = pipeline.translate(c_code, verbose=True)
 
-    if result['errors']:
-        print("Translation encountered errors.")
-        print(f"Compilation errors: {result['errors']}")
-    else:
-        print(f"Compiled successfully: {result['compiled']}")
-    print(f"Iterations: {result['iterations']}\n")
+    # Show results
+    print("\n" + "=" * 80)
+    print("TRANSLATION RESULTS")
+    print("=" * 80)
+    print()
+    print(f"Compiled successfully: {result['compiled']}")
+    print(f"Refinement iterations: {result['iterations']}")
+    print()
     print("Generated Rust code:")
-    print(result['rust_code'], "\n")
+    print("-" * 80)
+    print(result['rust_code'])
+    print("-" * 80)
+    print()
+
+    if not result['compiled'] and result['errors']:
+        print("Compilation errors:")
+        print("-" * 80)
+        print(result['errors'])
+        print("-" * 80)
+        print()
 
     return result
 
 def run_all_tests(pipeline):
     results = {}
     for name in ALL_TEST_CASES.keys():
-        result = run_demo(pipeline, name)
-        results[name] = result
+        print(f"\n{'=' * 80}")
+        print(f"Test: {name}")
+        print("=" * 80)
 
+        c_code = ALL_TEST_CASES[name]
+        result = pipeline.translate(c_code, verbose=False)
+
+        results[name] = result
+        status = "✓ PASS" if result['compiled'] else "✗ FAIL"
+        print(f"{status} - {name} (iterations: {result['iterations']})")
+
+    print("\n" + "=" * 80)
+    print("SUMMARY")
+    print("=" * 80)
     passed = sum(1 for r in results.values() if r['compiled'])
     total = len(results)
     print(f"Passed: {passed}/{total}")
+    print()
 
     for name, result in results.items():
-        status = "+" if result['compiled'] else "-"
-        print(f"{status} {name}")
+        status = "✓" if result['compiled'] else "✗"
+        print(f"  {status} {name}")
+
+    print()

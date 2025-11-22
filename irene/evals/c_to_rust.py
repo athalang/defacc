@@ -12,6 +12,7 @@ from inspect_ai.solver import TaskState, solver, Generate
 from irene.pipeline import IRENEPipeline
 from irene.tests.test_paper_examples import ALL_TEST_CASES
 
+
 @solver
 def translate_c_to_rust():
     """
@@ -28,7 +29,7 @@ def translate_c_to_rust():
         c_code = ALL_TEST_CASES[test_name]
 
         # Initialize pipeline (using the LLM from state)
-        from settings import settings
+        from irene.settings import settings
         import dspy
 
         lm = dspy.LM(

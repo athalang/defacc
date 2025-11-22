@@ -28,30 +28,25 @@ C Code -> Static Rule Analyzer -> Rule Hints
 
 ## Setup
 
-### 1. Install uv
+### 1. Install Dependencies
 
 ```bash
-# Install uv (fast Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install package in development mode with dependencies
+pip install -e .
+
+# Or using uv (recommended - faster):
+uv pip install -e .
 ```
 
-### 2. Install Dependencies
+This will install the `irene` package and all dependencies including `libclang`, `dspy`, and `inspect-ai`.
 
-```bash
-# Sync dependencies (creates venv and installs packages)
-uv sync
-
-# Activate the virtual environment
-source .venv/bin/activate
-```
-
-### 3. Install Rust (for compilation validation)
+### 2. Install Rust (for compilation validation)
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### 4. Configure LLM
+### 3. Configure LLM
 
 Create a `.env` file from the example template:
 
@@ -81,12 +76,6 @@ MODEL=ollama/mistral
 TEMPERATURE=0.7
 API_BASE=http://localhost:11434
 ```
-
-**Or OpenAI:**
-`export OPENAI_API_KEY='your-key-here'`
-
-**Or configure a local model:**
-`export IRENE_MODEL='ollama/mistral'`
 
 ## Usage
 
@@ -118,20 +107,14 @@ python main.py --all
 
 IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
 
-**Setup:**
-```bash
-# Dependencies are already included in pyproject.toml
-uv sync
-```
-
 **Run evaluations:**
 
 ```bash
 # Run single test case
-inspect eval src/defacc/irene/evals/c_to_rust.py@scanf_two_ints_eval
+inspect eval irene/evals/c_to_rust.py@scanf_two_ints_eval
 
 # Run all test cases (7 examples)
-inspect eval src/defacc/irene/evals/c_to_rust.py
+inspect eval irene/evals/c_to_rust.py@all_tests_eval
 
 # View results in web UI
 inspect view
@@ -155,7 +138,7 @@ The evaluation results are saved to `./logs/` and can be viewed in the Inspect U
 
 ```python
 import dspy
-from defacc.irene.pipeline import IRENEPipeline
+from irene.pipeline import IRENEPipeline
 
 # 1. Configure LLM
 lm = dspy.LM(
@@ -189,32 +172,29 @@ print(f"Compiled: {result['compiled']}")
 .
 ├── main.py                 # Entry point - runs demo/tests
 ├── .env.example            # Example configuration template
-├── pyproject.toml          # Project metadata and dependencies (uv)
-├── uv.lock                 # Locked dependency versions
-└── src/
-    └── defacc/
-        ├── settings.py     # Pydantic settings from .env
-        ├── main.py         # Main entry point module
-        └── irene/
-            ├── pipeline.py         # IRENE pipeline orchestration
-            ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
-            ├── rule_analyzer.py    # Static C code analysis
-            ├── retriever.py        # BM25-based example retrieval
-            ├── compiler.py         # rustc wrapper with robust LLM output handling
-            ├── demo.py             # Demo and test runner functions
-            ├── corpus/
-            │   └── examples.json   # C->Rust translation examples (15 pairs)
-            ├── evals/
-            │   └── c_to_rust.py    # Inspect AI evaluation tasks
-            └── tests/
-                └── test_paper_examples.py  # Test cases from paper
+├── pyproject.toml          # Project metadata and dependencies
+└── irene/
+    ├── __init__.py         # Package initialization
+    ├── pipeline.py         # IRENE pipeline orchestration
+    ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
+    ├── rule_analyzer.py    # Static C code analysis with libclang
+    ├── retriever.py        # BM25-based example retrieval
+    ├── compiler.py         # rustc wrapper with robust LLM output handling
+    ├── demo.py             # Demo and test runner functions
+    ├── settings.py         # Pydantic settings from .env
+    ├── corpus/
+    │   └── examples.json   # C->Rust translation examples (15 pairs)
+    ├── evals/
+    │   └── c_to_rust.py    # Inspect AI evaluation tasks
+    └── tests/
+        └── test_paper_examples.py  # Test cases from paper
 ```
 
 ## Components
 
 ### Static Rule Analyzer (`rule_analyzer.py`)
 
-Detects C patterns using regex:
+Detects C patterns using libclang AST analysis:
 
 - **I/O**: `scanf`, `printf` -> suggest `read_to_string` + parsing
 - **Pointers**: `malloc`, pointer arithmetic -> suggest `Vec`, `Box`
@@ -304,9 +284,9 @@ let result = (x as i64) * (y as i64);
 
 ```python
 pipeline = IRENEPipeline(
-    lm=lm,                                                    # DSPy language model instance
-    corpus_path="src/defacc/irene/corpus/examples.json",      # Path to examples corpus (from project root)
-    max_refinement_iterations=3,                              # Max compile-fix loops
+    lm=lm,                                    # DSPy language model instance
+    max_refinement_iterations=3,              # Max compile-fix loops (default: 3)
+    # corpus_path defaults to irene/corpus/examples.json
 )
 ```
 
@@ -356,15 +336,16 @@ def _check_your_pattern(self, code: str) -> List[RuleHint]:
 ### MVP Checklist
 
 - [x] DSPy module definitions
-- [x] Static rule analyzer (regex-based)
+- [x] Static rule analyzer (libclang AST-based)
 - [x] BM25 retrieval with example corpus
 - [x] rustc compilation wrapper
 - [x] End-to-end pipeline
 - [x] Demo script with test cases
+- [x] Inspect AI evaluation tasks
 
 ### Next Steps (Post-Hackathon)
 
-1. **Better parsing**: Replace regex with tree-sitter or pycparser AST
+1. **Enhanced AST analysis**: Extract more detailed pattern information from libclang
 2. **More examples**: Expand corpus to 100+ examples
 3. **Evaluation**: Benchmark on Rosetta Code or programming contest problems
 4. **DSPy optimization**: Use MIPRO to optimize prompts on labeled data
