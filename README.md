@@ -128,10 +128,10 @@ uv sync
 
 ```bash
 # Run single test case
-inspect eval src/defacc/irene/evals/c_to_rust.py@scanf_two_ints_eval
+inspect eval src/defacc/evals/c_to_rust.py@scanf_two_ints_eval
 
 # Run all test cases (7 examples)
-inspect eval src/defacc/irene/evals/c_to_rust.py
+inspect eval src/defacc/evals/c_to_rust.py@all_tests_eval
 
 # View results in web UI
 inspect view
@@ -155,7 +155,7 @@ The evaluation results are saved to `./logs/` and can be viewed in the Inspect U
 
 ```python
 import dspy
-from defacc.irene.pipeline import IRENEPipeline
+from defacc.pipeline import IRENEPipeline
 
 # 1. Configure LLM
 lm = dspy.LM(
@@ -193,21 +193,20 @@ print(f"Compiled: {result['compiled']}")
 ├── uv.lock                 # Locked dependency versions
 └── src/
     └── defacc/
-        ├── settings.py     # Pydantic settings from .env
-        ├── main.py         # Main entry point module
-        └── irene/
-            ├── pipeline.py         # IRENE pipeline orchestration
-            ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
-            ├── rule_analyzer.py    # Static C code analysis
-            ├── retriever.py        # BM25-based example retrieval
-            ├── compiler.py         # rustc wrapper with robust LLM output handling
-            ├── demo.py             # Demo and test runner functions
-            ├── corpus/
-            │   └── examples.json   # C->Rust translation examples (15 pairs)
-            ├── evals/
-            │   └── c_to_rust.py    # Inspect AI evaluation tasks
-            └── tests/
-                └── test_paper_examples.py  # Test cases from paper
+        ├── pipeline.py         # IRENE pipeline orchestration
+        ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
+        ├── rule_analyzer.py    # Static C code analysis
+        ├── retriever.py        # BM25-based example retrieval
+        ├── compiler.py         # rustc wrapper with robust LLM output handling
+        ├── demo.py             # Demo and test runner functions
+        ├── settings.py         # Pydantic settings from .env
+        ├── main.py             # Main entry point module
+        ├── corpus/
+        │   └── examples.json   # C->Rust translation examples (15 pairs)
+        ├── evals/
+        │   └── c_to_rust.py    # Inspect AI evaluation tasks
+        └── tests/
+            └── test_paper_examples.py  # Test cases from paper
 ```
 
 ## Components
@@ -305,7 +304,7 @@ let result = (x as i64) * (y as i64);
 ```python
 pipeline = IRENEPipeline(
     lm=lm,                                                    # DSPy language model instance
-    corpus_path="src/defacc/irene/corpus/examples.json",      # Path to examples corpus (from project root)
+    corpus_path="src/defacc/corpus/examples.json",            # Path to examples corpus (from project root)
     max_refinement_iterations=3,                              # Max compile-fix loops
 )
 ```

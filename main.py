@@ -8,9 +8,9 @@ if __name__ == "__main__":
     import argparse
     import dspy
     from defacc.settings import settings
-    from defacc.irene.pipeline import IRENEPipeline
-    from defacc.irene.demo import run_demo, run_all_tests
-    from defacc.irene.tests.test_paper_examples import ALL_TEST_CASES
+    from defacc.pipeline import IRENEPipeline
+    from defacc.demo import run_demo, run_all_tests
+    from defacc.tests.test_paper_examples import ALL_TEST_CASES
 
     parser = argparse.ArgumentParser(description="IRENE C-to-Rust Translation Demo")
     parser.add_argument(

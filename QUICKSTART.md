@@ -126,7 +126,7 @@ IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safet
 
 ```bash
 # Run all test cases through eval framework
-inspect eval src/defacc/irene/evals/c_to_rust.py
+inspect eval src/defacc/evals/c_to_rust.py@all_tests_eval
 
 # View results in web UI
 inspect view
@@ -138,7 +138,7 @@ This measures compilation success rate and tracks refinement iterations. See REA
 
 ```python
 import dspy
-from defacc.irene.pipeline import IRENEPipeline
+from defacc.pipeline import IRENEPipeline
 
 # 1. Configure LLM
 lm = dspy.LM(
@@ -198,12 +198,12 @@ cp .env.example .env
 cd /path/to/defacc
 python main.py
 
-# The corpus should be at: src/defacc/irene/corpus/examples.json
+# The corpus should be at: src/defacc/corpus/examples.json
 ```
 
 ## Next Steps
 
-1. **Add your own examples**: Edit `src/defacc/irene/corpus/examples.json`
+1. **Add your own examples**: Edit `src/defacc/corpus/examples.json`
 2. **Test on real code**: Try translating your own C snippets
 3. **Tune parameters**: Adjust `max_refinement_iterations` in IRENEPipeline
 4. **Try different LLMs**: Experiment with GPT-4, Claude, or local models

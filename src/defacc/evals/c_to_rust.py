@@ -9,8 +9,8 @@ from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
-from defacc.irene.pipeline import IRENEPipeline
-from defacc.irene.tests.test_paper_examples import ALL_TEST_CASES
+from defacc.pipeline import IRENEPipeline
+from defacc.tests.test_paper_examples import ALL_TEST_CASES
 
 
 @solver
