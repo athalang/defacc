@@ -124,7 +124,7 @@ python main.py --test array_indexing
 
 ```python
 import dspy
-from irene.pipeline import IRENEPipeline
+from defacc.irene.pipeline import IRENEPipeline
 
 # 1. Configure LLM
 lm = dspy.LM(
@@ -183,12 +183,12 @@ cp .env.example .env
 cd /path/to/defacc
 python main.py
 
-# The corpus should be at: irene/corpus/examples.json
+# The corpus should be at: src/defacc/irene/corpus/examples.json
 ```
 
 ## Next Steps
 
-1. **Add your own examples**: Edit `irene/corpus/examples.json`
+1. **Add your own examples**: Edit `src/defacc/irene/corpus/examples.json`
 2. **Test on real code**: Try translating your own C snippets
 3. **Tune parameters**: Adjust `max_refinement_iterations` in IRENEPipeline
 4. **Try different LLMs**: Experiment with GPT-4, Claude, or local models

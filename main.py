@@ -1,26 +1,14 @@
-import dspy
-
-from settings import settings
-from irene.pipeline import IRENEPipeline
-from irene.demo import run_demo, run_all_tests
-from irene.tests.test_paper_examples import ALL_TEST_CASES
-
-def main(args):
-    lm = dspy.LM(
-        model=settings.model,
-        api_base=settings.api_base,
-        temperature=settings.temperature,
-        api_key=settings.api_key,
-    )
-    pipeline = IRENEPipeline(lm=lm)
-
-    if args.all:
-        run_all_tests(pipeline)
-    else:
-        run_demo(pipeline, args.test)
+#!/usr/bin/env python3
+"""
+Convenience wrapper for running IRENE from project root.
+Delegates to defacc.main module.
+"""
 
 if __name__ == "__main__":
+    from defacc.main import main
     import argparse
+    from defacc.irene.tests.test_paper_examples import ALL_TEST_CASES
+
     parser = argparse.ArgumentParser(description="IRENE C-to-Rust Translation Demo")
     parser.add_argument(
         "--test",

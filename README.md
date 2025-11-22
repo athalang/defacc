@@ -114,11 +114,31 @@ python main.py --all
 - `simple_pointer`: Basic pointer allocation
 - `float_conversion`: Integer to float conversion
 
+### Run Evaluations
+
+Evaluate translation quality using Inspect AI:
+
+```bash
+# First, sync dependencies to get inspect_ai
+uv sync
+
+# Run eval on single test case
+inspect eval src/defacc/irene/evals/c_to_rust.py@scanf_two_ints_eval
+
+# Run eval on all test cases
+inspect eval src/defacc/irene/evals/c_to_rust.py@all_tests_eval
+```
+
+This will output metrics including:
+- Compilation success rate
+- Number of refinement iterations needed
+- Detailed error logs
+
 ### Programmatic Usage
 
 ```python
 import dspy
-from irene.pipeline import IRENEPipeline
+from defacc.irene.pipeline import IRENEPipeline
 
 # Configure LLM
 lm = dspy.LM(
@@ -149,22 +169,28 @@ print(f"Compiled: {result['compiled']}")
 
 ```
 .
-├── main.py                 # Entry point - runs demo/tests
-├── settings.py             # Pydantic settings from .env
+├── main.py                 # Convenience wrapper - runs demo/tests
+├── demo.py                 # Quick demo script
 ├── .env.example            # Example configuration template
 ├── pyproject.toml          # Project metadata and dependencies (uv)
 ├── uv.lock                 # Locked dependency versions
-└── irene/
-    ├── pipeline.py         # IRENE pipeline orchestration
-    ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
-    ├── rule_analyzer.py    # Static C code analysis
-    ├── retriever.py        # BM25-based example retrieval
-    ├── compiler.py         # rustc wrapper with robust LLM output handling
-    ├── demo.py             # Demo and test runner functions
-    ├── corpus/
-    │   └── examples.json   # C->Rust translation examples (15 pairs)
-    └── tests/
-        └── test_paper_examples.py  # Test cases from paper
+└── src/
+    └── defacc/
+        ├── settings.py     # Pydantic settings from .env
+        ├── main.py         # Main entry point module
+        └── irene/
+            ├── pipeline.py         # IRENE pipeline orchestration
+            ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
+            ├── rule_analyzer.py    # Static C code analysis
+            ├── retriever.py        # BM25-based example retrieval
+            ├── compiler.py         # rustc wrapper with robust LLM output handling
+            ├── demo.py             # Demo and test runner functions
+            ├── corpus/
+            │   └── examples.json   # C->Rust translation examples (15 pairs)
+            ├── evals/
+            │   └── c_to_rust.py    # Inspect AI evaluation tasks
+            └── tests/
+                └── test_paper_examples.py  # Test cases from paper
 ```
 
 ## Components
@@ -261,9 +287,9 @@ let result = (x as i64) * (y as i64);
 
 ```python
 pipeline = IRENEPipeline(
-    lm=lm,                                    # DSPy language model instance
-    corpus_path="irene/corpus/examples.json", # Path to examples corpus
-    max_refinement_iterations=3,              # Max compile-fix loops
+    lm=lm,                                                    # DSPy language model instance
+    corpus_path="src/defacc/irene/corpus/examples.json",      # Path to examples corpus (from project root)
+    max_refinement_iterations=3,                              # Max compile-fix loops
 )
 ```
 

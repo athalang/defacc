@@ -3,10 +3,15 @@ name = "defacc"
 version = "0.1.0"
 description = "placeholder"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "clang>=20.1.5",
     "dspy>=0.1.4",
     "pydantic-settings>=2.0.0",
     "rank-bm25>=0.2.2",
+    "inspect-ai>=0.3.148",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["defacc"]
