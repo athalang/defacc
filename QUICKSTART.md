@@ -120,6 +120,20 @@ Run a specific test:
 python main.py --test array_indexing
 ```
 
+## Run Evaluations (Optional)
+
+IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/) to measure translation quality:
+
+```bash
+# Run all test cases through eval framework
+inspect eval src/defacc/irene/evals/c_to_rust.py
+
+# View results in web UI
+inspect view
+```
+
+This measures compilation success rate and tracks refinement iterations. See README.md for full details.
+
 ## Use in Your Code
 
 ```python

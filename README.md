@@ -116,23 +116,40 @@ python main.py --all
 
 ### Run Evaluations
 
-Evaluate translation quality using Inspect AI:
+IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
 
+**Setup:**
 ```bash
-# First, sync dependencies to get inspect_ai
+# Dependencies are already included in pyproject.toml
 uv sync
-
-# Run eval on single test case
-inspect eval src/defacc/irene/evals/c_to_rust.py@scanf_two_ints_eval
-
-# Run eval on all test cases
-inspect eval src/defacc/irene/evals/c_to_rust.py@all_tests_eval
 ```
 
-This will output metrics including:
-- Compilation success rate
-- Number of refinement iterations needed
-- Detailed error logs
+**Run evaluations:**
+
+```bash
+# Run single test case
+inspect eval src/defacc/irene/evals/c_to_rust.py@scanf_two_ints_eval
+
+# Run all test cases (7 examples)
+inspect eval src/defacc/irene/evals/c_to_rust.py
+
+# View results in web UI
+inspect view
+```
+
+**Metrics reported:**
+- **Accuracy**: Percentage of translations that compiled successfully
+- **Iterations**: Number of refinement loops needed per example
+- **Error details**: Compiler errors for failed translations (in logs)
+
+**Example output:**
+```
+Task: all_tests_eval
+  accuracy: 0.857 (6/7)
+  avg_iterations: 1.2
+```
+
+The evaluation results are saved to `./logs/` and can be viewed in the Inspect UI with `inspect view`.
 
 ### Programmatic Usage
 
