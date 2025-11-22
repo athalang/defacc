@@ -1,9 +1,6 @@
-"""Static rule analyzer for detecting C patterns that need special Rust translation."""
-
 from dataclasses import dataclass
 from typing import List
 import re
-
 
 @dataclass
 class RuleHint:
@@ -136,7 +133,6 @@ class StaticRuleAnalyzer:
             )
 
         return hints
-
 
 def format_hints(hints: List[RuleHint]) -> str:
     """Format rule hints into a string for the LLM."""

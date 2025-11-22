@@ -1,25 +1,17 @@
-"""BM25-based retrieval system for C-to-Rust translation examples."""
-
 import json
 from dataclasses import dataclass
 from typing import List, Dict
 from pathlib import Path
 from rank_bm25 import BM25Okapi
 
-
 @dataclass
 class TranslationExample:
-    """A C-to-Rust translation example."""
-
     c_code: str
     rust_code: str
     categories: List[str]  # ["I/O", "Array", etc.]
     description: str
 
-
 class ExampleRetriever:
-    """Retrieves relevant C-to-Rust translation examples using BM25."""
-
     def __init__(self, corpus_path: str = "irene/corpus/examples.json"):
         self.corpus_path = Path(corpus_path)
         self.examples: List[TranslationExample] = []
@@ -27,7 +19,6 @@ class ExampleRetriever:
         self._load_corpus()
 
     def _load_corpus(self):
-        """Load translation examples from JSON file."""
         if not self.corpus_path.exists():
             print(f"Warning: Corpus file {self.corpus_path} not found. Using empty corpus.")
             return
@@ -45,12 +36,9 @@ class ExampleRetriever:
                 )
             )
 
-        # Build BM25 index per category
         self._build_indices()
 
     def _build_indices(self):
-        """Build BM25 indices for each category."""
-        # Group examples by category
         category_examples = {}
         for example in self.examples:
             for cat in example.categories:
@@ -64,7 +52,6 @@ class ExampleRetriever:
             self.bm25[cat] = BM25Okapi(tokenized_corpus)
 
     def retrieve(self, c_code: str, categories: List[str], top_k: int = 3) -> List[TranslationExample]:
-        """Retrieve top-k most relevant examples for the given C code and categories."""
         if not categories or not self.examples:
             return []
 

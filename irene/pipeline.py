@@ -1,15 +1,14 @@
 import dspy
-from typing import Optional
 
-from rule_analyzer import StaticRuleAnalyzer, format_hints
-from retriever import ExampleRetriever, format_examples
-from compiler import RustCompiler, check_rustc_available
-from dspy_modules import IRENEModules
+from .rule_analyzer import StaticRuleAnalyzer, format_hints
+from .retriever import ExampleRetriever, format_examples
+from .compiler import RustCompiler, check_rustc_available
+from .dspy_modules import IRENEModules
 
 class IRENEPipeline:
     def __init__(
         self,
-        lm_model: Optional[dspy.LM] = None,
+        lm: dspy.LM,
         corpus_path: str = "irene/corpus/examples.json",
         max_refinement_iterations: int = 3,
     ):
@@ -22,8 +21,8 @@ class IRENEPipeline:
         self.modules = IRENEModules()
 
         # Set up DSPy LM
-        if lm_model:
-            dspy.settings.configure(lm=lm_model)
+        if lm:
+            dspy.settings.configure(lm=lm)
 
         # Check if rustc is available
         if not check_rustc_available():
@@ -71,9 +70,9 @@ class IRENEPipeline:
             print("Step 3: Summarizing C code structure...")
         summary = self.modules.summarizer(c_code=c_code)
         if verbose:
-            print(f"  Params: {summary.params}")
-            print(f"  Returns: {summary.returns}")
-            print(f"  Function: {summary.functionality}\n")
+            print(f"  Params: {summary.arguments}")
+            print(f"  Returns: {summary.outputs}")
+            print(f"  Function: {summary.function}\n")
 
         # Step 4: Initial translation
         if verbose:
@@ -132,49 +131,9 @@ class IRENEPipeline:
         }
 
     def _format_summary(self, summary) -> str:
-        """Format the code summary for the translator."""
         return f"""
 Code Summary:
-- Parameters: {summary.params}
-- Returns: {summary.returns}
-- Functionality: {summary.functionality}
+- Parameters: {summary.arguments}
+- Returns: {summary.outputs}
+- Functionality: {summary.function}
 """
-
-
-def main():
-    """Example usage of the IRENE pipeline."""
-    import sys
-
-    # Example C code
-    example_c = """
-#include <stdio.h>
-
-int main() {
-    int a, b;
-    scanf("%d%d", &a, &b);
-    printf("%d\\n", a + b);
-    return 0;
-}
-"""
-
-    print("IRENE Framework Demo")
-    print("=" * 60)
-    print("\nNOTE: You need to configure a DSPy language model first.")
-    print("Example:")
-    print("  import dspy")
-    print('  lm = dspy.LM("openai/gpt-4")')
-    print("  pipeline = IRENEPipeline(lm_model=lm)")
-    print("\nOr set environment variables and use dspy.configure()")
-    print("=" * 60 + "\n")
-
-    # For demo purposes, show what would happen
-    print("Input C code:")
-    print(example_c)
-    print("\nTo translate this code, configure a language model and run:")
-    print("  pipeline = IRENEPipeline(lm_model=your_model)")
-    print('  result = pipeline.translate(c_code, verbose=True)')
-    print("  print(result['rust_code'])")
-
-
-if __name__ == "__main__":
-    main()

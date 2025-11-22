@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Tuple
 
 class RustCompiler:
-    """Wrapper for rustc to compile and validate Rust code."""
-
     def _filter_rustc_internal_errors(self, errors: str) -> str:
         """
         Filter out rustc internal errors that aren't related to user code.
@@ -114,13 +112,11 @@ class RustCompiler:
             except Exception:
                 pass
 
-
 def check_rustc_available() -> bool:
-    """Check if rustc is available in the system."""
     try:
-        result = subprocess.run(
-            ["rustc", "--version"], capture_output=True, text=True, timeout=5
+        subprocess.run(
+            ["rustc", "--version"], check=True, timeout=5
         )
-        return result.returncode == 0
-    except Exception:
+        return True
+    except FileNotFoundError: # rustc not in PATH
         return False

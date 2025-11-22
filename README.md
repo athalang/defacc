@@ -228,21 +228,6 @@ pipeline = IRENEPipeline(
 )
 ```
 
-### Supported LLMs
-
-Via DSPy's unified interface:
-
-```python
-# Anthropic
-lm = dspy.LM('anthropic/claude-3-5-sonnet-20241022')
-
-# OpenAI
-lm = dspy.LM('openai/gpt-4')
-
-# Local Ollama
-lm = dspy.LM('ollama/mistral', api_base='http://localhost:11434')
-```
-
 ## Extending IRENE
 
 ### Add New Translation Patterns
@@ -276,24 +261,6 @@ def _check_your_pattern(self, code: str) -> List[RuleHint]:
 
 2. Call from `analyze()` method
 3. Tag corpus examples with new category
-
-## Performance Notes
-
-- **LLM calls**: 3-5 per translation (1 summary + 1 translation + 0-3 refinements)
-- **Typical latency**: 10-30 seconds per translation (depends on LLM)
-- **Success rate**: Depends on corpus quality and LLM capability
-
-## Paper Reference
-
-This implementation is based on:
-**"Integrating Rules and Semantics for LLM-Based C-to-Rust Translation"**
-
-Key contributions:
-- Rule-augmented retrieval outperforms vanilla RAG
-- Structured summarization improves translation quality
-- Compiler-in-the-loop refinement fixes common errors
-
-## Hackathon Notes
 
 ### MVP Checklist
 
