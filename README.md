@@ -82,12 +82,11 @@ TEMPERATURE=0.7
 API_BASE=http://localhost:11434
 ```
 
-# Or OpenAI
-export OPENAI_API_KEY='your-key-here'
+**Or OpenAI:**
+`export OPENAI_API_KEY='your-key-here'`
 
-# Or configure a local model
-export IRENE_MODEL='ollama/mistral'
-```
+**Or configure a local model:**
+`export IRENE_MODEL='ollama/mistral'`
 
 ## Usage
 
