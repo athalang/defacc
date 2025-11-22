@@ -8,7 +8,6 @@ from .dspy_modules import IRENEModules
 class IRENEPipeline:
     def __init__(
         self,
-        lm: dspy.LM,
         corpus_path: str = "irene/corpus/examples.json",
         max_refinement_iterations: int = 3,
     ):
@@ -18,11 +17,9 @@ class IRENEPipeline:
         self.rule_analyzer = StaticRuleAnalyzer()
         self.retriever = ExampleRetriever(corpus_path)
         self.compiler = RustCompiler()
-        self.modules = IRENEModules()
 
-        # Set up DSPy LM
-        if lm:
-            dspy.settings.configure(lm=lm)
+        # Initialize DSPy modules
+        self.modules = IRENEModules()
 
         # Check if rustc is available
         if not check_rustc_available():

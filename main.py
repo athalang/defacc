@@ -12,6 +12,7 @@ def main(args):
         temperature=settings.temperature,
         api_key=settings.api_key,
     )
+    dspy.configure(lm=lm)
     pipeline = IRENEPipeline(lm=lm)
 
     if args.all:
