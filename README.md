@@ -472,9 +472,9 @@ let buffer: String = stdin.lock().lines().next().unwrap().unwrap();
 Measured on test suite of 7 common C patterns:
 
 | Metric | Vanilla LLM | GUARDIAN |
-|--------|-------------|-------|
+|--------|-------------|---------|
 | Compilation Success | ~40-60% | **86%** |
-| Unsafe Blocks | Variable | **0%** |
+| Unsafe Blocks | Variable | Minimal |
 | Memory Safety Guarantees | None | **Type-checked** |
 | Vulnerability Detection | Manual review required | **Automatic** |
 
