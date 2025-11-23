@@ -7,7 +7,7 @@ from typing import Optional
 
 import dspy
 
-from .pipeline import IRENEPipeline
+from .pipeline import GUARDIANPipeline
 from .settings import settings
 
 
