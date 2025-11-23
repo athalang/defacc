@@ -1,0 +1,27 @@
+graph TD
+    Start([C Code]) --> Analyzer[Static Rule Analyzer]
+
+    Analyzer -->|Hints| Retriever[Example Retriever]
+    Retriever -->|Examples| Summarizer[Code Summarizer]
+    Summarizer -->|Summary| Translator[LLM Translator]
+
+    Analyzer -.->|Hints| Translator
+    Retriever -.->|Examples| Translator
+
+    Translator -->|Rust Code| Compiler{Compiler Check}
+
+    Compiler -->|✓ Success| Done([Safe Rust Code])
+    Compiler -->|✗ Errors| Refiner[Refiner]
+
+    Refiner -->|Fixed Code| Compiler
+    Refiner -.->|Max 3 iterations| Failed([Failed])
+
+    style Start fill:#e1f5e1
+    style Done fill:#e1f5e1
+    style Failed fill:#ffe1e1
+    style Analyzer fill:#e3f2fd
+    style Retriever fill:#e3f2fd
+    style Compiler fill:#f3e5f5
+    style Translator fill:#fff3e0
+    style Summarizer fill:#fff3e0
+    style Refiner fill:#fff3e0

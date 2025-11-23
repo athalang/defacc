@@ -1,1 +1,1 @@
-"""Static data files for IRENE."""
+"""Static data files for GUARDIAN."""
