@@ -32,9 +32,9 @@ cp .env.example .env
 Set model + credentials in `.env`:
 
 ```
-MODEL=anthropic/claude-3-5-sonnet-20241022
-API_KEY=sk-ant-your-key-here
+MODEL=hosted_vllm/Qwen/Qwen3-Coder-30B-A3B-Instruct
 TEMPERATURE=0.7
+API_KEY=your-key-here
 ```
 
 See `QUICKSTART.md` for more configuration recipes.
