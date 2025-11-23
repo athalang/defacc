@@ -1,6 +1,10 @@
+import json
+import importlib.resources as resources
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, List, Optional, Set
-from clang.cindex import Cursor, CursorKind, TokenKind, TranslationUnit, TypeKind, Index
+from typing import Any, Dict, List, Optional, Set, Tuple
+from clang.cindex import Cursor, CursorKind, TypeKind
+
+from guardian.clang_utils import LibclangContext, cursor_kind_slug
 
 @dataclass
 class RuleHint:
@@ -9,28 +13,85 @@ class RuleHint:
     suggested_rust: str  # How to translate it in Rust
     explanation: str  # Why this pattern needs special handling
 
+@dataclass(frozen=True)
+class HintDefinition:
+    key: str
+    bucket: str
+    hint: Dict[str, str]
+    kinds: Tuple[CursorKind, ...]
+    call_name: Optional[str] = None
+    predicate: Optional[str] = None
+    required: bool = True
+
+BUCKET_ORDER: Tuple[str, ...] = ("io", "pointer", "array", "mixtype")
+def _load_hint_definitions() -> Tuple[HintDefinition, ...]:
+    data_path = resources.files("guardian.data").joinpath("rule_hints.json")
+    with data_path.open("r", encoding="utf-8") as fh:
+        raw_definitions = json.load(fh)
+
+    definitions: List[HintDefinition] = []
+    for item in raw_definitions:
+        kinds = tuple(getattr(CursorKind, kind) for kind in item.get("kinds", []))
+        definitions.append(
+            HintDefinition(
+                key=item["key"],
+                bucket=item["bucket"],
+                hint=item["hint"],
+                kinds=kinds,
+                call_name=item.get("call_name"),
+                predicate=item.get("predicate"),
+                required=item.get("required", True),
+            )
+        )
+    return tuple(definitions)
+
+
+HINT_DEFINITIONS: Tuple[HintDefinition, ...] = _load_hint_definitions()
+HINTS_BY_KIND: Dict[CursorKind, List[HintDefinition]] = {}
+for _definition in HINT_DEFINITIONS:
+    for _kind in _definition.kinds:
+        HINTS_BY_KIND.setdefault(_kind, []).append(_definition)
+del _definition, _kind
+REQUIRED_KEYS_BY_BUCKET = {
+    bucket: {
+        definition.key
+        for definition in HINT_DEFINITIONS
+        if definition.bucket == bucket and definition.required
+    }
+    for bucket in BUCKET_ORDER
+}
+
 class StaticRuleAnalyzer:
-    def __init__(self, clang_args: Optional[List[str]] = None):
+    BUCKET_ORDER = BUCKET_ORDER
+    HINT_DEFINITIONS = HINT_DEFINITIONS
+    HINTS_BY_KIND = HINTS_BY_KIND
+    REQUIRED_KEYS = REQUIRED_KEYS_BY_BUCKET
+
+    def __init__(
+        self,
+        clang_args: Optional[List[str]] = None,
+        source_filename: str = "input.c",
+        clang: Optional[LibclangContext] = None,
+    ):
         """
         Rule analyzer with optional libclang AST generation support.
 
         Args:
             clang_args: Extra arguments passed to libclang when parsing code.
+            source_filename: Filename used by libclang (use the real path for on-disk files).
+            clang: Pre-configured LibclangContext to reuse (takes precedence over args).
         """
-        self.clang_args = clang_args or ["-xc", "-std=c11"]
+        self.clang = self._resolve_context(clang, clang_args, source_filename)
 
     def analyze(self, c_code: str) -> List[RuleHint]:
         """Analyze C code and return applicable rule hints using libclang."""
-        translation_unit = self._parse_translation_unit(c_code)
+        translation_unit = self.clang.parse_translation_unit(c_code)
+        return self.analyze_translation_unit(translation_unit)
+
+    def analyze_translation_unit(self, translation_unit) -> List[RuleHint]:
+        """Analyze an existing translation unit without reparsing."""
         root_cursor = translation_unit.cursor
-
-        hints = []
-        hints.extend(self._check_io_patterns(root_cursor))
-        hints.extend(self._check_pointer_patterns(root_cursor))
-        hints.extend(self._check_array_patterns(root_cursor))
-        hints.extend(self._check_mixtype_patterns(root_cursor))
-
-        return hints
+        return self._collect_rule_hints(root_cursor)
 
     def generate_libclang_ast(
         self,
@@ -51,13 +112,7 @@ class StaticRuleAnalyzer:
         """
 
         try:
-            index = Index.create()
-            translation_unit = index.parse(
-                "input.c",
-                args=self.clang_args,
-                unsaved_files=[("input.c", c_code)],
-                options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
-            )
+            translation_unit = self.clang.parse_translation_unit(c_code)
         except Exception as exc:  # pragma: no cover - defensive
             raise RuntimeError(f"Failed to parse C code with libclang: {exc}") from exc
 
@@ -66,7 +121,7 @@ class StaticRuleAnalyzer:
                 return None
 
             # Only include nodes belonging to our in-memory file
-            if cursor.location and cursor.location.file and cursor.location.file.name != "input.c":
+            if cursor.location and cursor.location.file and not self.clang.is_in_source_file(cursor):
                 return None
 
             children = []
@@ -76,7 +131,7 @@ class StaticRuleAnalyzer:
                     children.append(child_dict)
 
             node = {
-                "kind": cursor.kind.spelling,
+                "kind": cursor_kind_slug(cursor.kind),
                 "spelling": cursor.spelling or "",
                 "type": cursor.type.spelling if cursor.type else "",
                 "location": {
@@ -96,47 +151,19 @@ class StaticRuleAnalyzer:
 
         return cursor_to_dict(translation_unit.cursor) or {}
 
-    def _parse_translation_unit(self, c_code: str) -> TranslationUnit:
-        """Parse C code into a libclang TranslationUnit."""
-        try:
-            index = Index.create()
-            return index.parse(
-                "input.c",
-                args=self.clang_args,
-                unsaved_files=[("input.c", c_code)],
-                options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            raise RuntimeError(f"Failed to parse C code with libclang: {exc}") from exc
-
-    def _walk_relevant_nodes(self, cursor: Cursor) -> Generator[Cursor, None, None]:
-        """Yield AST nodes that belong to the in-memory file."""
-        stack = [cursor]
-        while stack:
-            node = stack.pop()
-            if (
-                node.location
-                and node.location.file
-                and node.location.file.name != "input.c"
-            ):
-                continue
-            yield node
-            stack.extend(reversed(list(node.get_children())))
-
-    def _get_called_function_name(self, cursor: Cursor) -> str:
-        """Best-effort extraction of a function name from a call expression."""
-        if cursor.spelling:
-            return cursor.spelling
-
-        for child in cursor.get_children():
-            if child.kind == CursorKind.DECL_REF_EXPR and child.spelling:
-                return child.spelling
-
-        for token in cursor.get_tokens():
-            if token.kind == TokenKind.IDENTIFIER:
-                return token.spelling
-
-        return ""
+    def _resolve_context(
+        self,
+        clang: Optional[LibclangContext],
+        clang_args: Optional[List[str]],
+        source_filename: str,
+    ) -> LibclangContext:
+        """Return an existing LibclangContext or create one using shared defaults."""
+        if clang is not None:
+            return clang
+        return LibclangContext(
+            clang_args=clang_args or ["-xc", "-std=c11"],
+            source_filename=source_filename,
+        )
 
     def _is_numeric_type(self, type_kind: TypeKind) -> bool:
         """Return True when type_kind represents a numeric scalar."""
@@ -182,6 +209,12 @@ class StaticRuleAnalyzer:
 
         return False
 
+    def _is_integer_cast(self, cursor: Cursor) -> bool:
+        """Return True when a cast targets a common signed integer type."""
+        if cursor.kind != CursorKind.CSTYLE_CAST_EXPR or not cursor.type:
+            return False
+        return cursor.type.kind in {TypeKind.LONGLONG, TypeKind.LONG, TypeKind.INT}
+
     def _is_arithmetic_operator(self, cursor: Cursor) -> bool:
         """Check if a binary operator cursor represents arithmetic (+, -, *, /)."""
         if cursor.kind != CursorKind.BINARY_OPERATOR:
@@ -189,128 +222,68 @@ class StaticRuleAnalyzer:
         ops = {token.spelling for token in cursor.get_tokens()}
         return bool({"+" , "-", "*", "/"}.intersection(ops))
 
-    def _check_io_patterns(self, root: Cursor) -> List[RuleHint]:
-        hints: List[RuleHint] = []
-        detected: Set[str] = set()
+    def _call_matches(self, cursor: Cursor, target: str) -> bool:
+        """Return True when cursor is a call expression matching the given name."""
+        return cursor.kind == CursorKind.CALL_EXPR and self.clang.get_called_function_name(cursor) == target
 
-        for node in self._walk_relevant_nodes(root):
-            if node.kind != CursorKind.CALL_EXPR:
-                continue
+    def _rule_hint_from_template(self, template: Dict[str, str]) -> RuleHint:
+        """Instantiate a RuleHint from a template dictionary."""
+        return RuleHint(
+            category=template["category"],
+            code_snippet=template["code_snippet"],
+            suggested_rust=template["suggested_rust"],
+            explanation=template["explanation"],
+        )
 
-            func_name = self._get_called_function_name(node)
-            if func_name == "scanf" and "scanf" not in detected:
-                hints.append(
-                    RuleHint(
-                        category="I/O",
-                        code_snippet='scanf("%d%d", &a, &b)',
-                        suggested_rust="use read_to_string() + split_whitespace() + parse()",
-                        explanation="scanf in C reads formatted input; Rust uses string parsing",
-                    )
-                )
-                detected.add("scanf")
+    def _is_mixed_numeric_arithmetic(self, cursor: Cursor) -> bool:
+        """Detect binary arithmetic where operand numeric kinds differ."""
+        if cursor.kind != CursorKind.BINARY_OPERATOR or not self._is_arithmetic_operator(cursor):
+            return False
+        children = list(cursor.get_children())
+        if len(children) != 2:
+            return False
+        lhs, rhs = children
+        return (
+            lhs.type
+            and rhs.type
+            and self._is_numeric_type(lhs.type.kind)
+            and self._is_numeric_type(rhs.type.kind)
+            and lhs.type.kind != rhs.type.kind
+        )
 
-            if func_name == "printf" and "printf" not in detected:
-                hints.append(
-                    RuleHint(
-                        category="I/O",
-                        code_snippet='printf("...", ...)',
-                        suggested_rust='println!("...", ...)',
-                        explanation="Use println! macro for formatted output in Rust",
-                    )
-                )
-                detected.add("printf")
+    def _requirements_satisfied(self, detected: Dict[str, Set[str]]) -> bool:
+        """Return True when all buckets have met their minimum keys."""
+        for bucket, required in self.REQUIRED_KEYS.items():
+            if not required.issubset(detected.get(bucket, set())):
+                return False
+        return True
 
-        return hints
+    def _collect_rule_hints(self, root: Cursor) -> List[RuleHint]:
+        """Traverse the AST once and collect all rule hints."""
+        buckets: Dict[str, List[RuleHint]] = {bucket: [] for bucket in self.BUCKET_ORDER}
+        detected: Dict[str, Set[str]] = {bucket: set() for bucket in self.BUCKET_ORDER}
 
-    def _check_pointer_patterns(self, root: Cursor) -> List[RuleHint]:
-        """Check for malloc/pointer patterns using the AST."""
-        hints: List[RuleHint] = []
-        detected: Set[str] = set()
+        for node in self.clang.walk_relevant_nodes(root):
+            for definition in self.HINTS_BY_KIND.get(node.kind, ()):
+                bucket = definition.bucket
+                if definition.key in detected[bucket]:
+                    continue
+                if definition.call_name and not self._call_matches(node, definition.call_name):
+                    continue
+                if definition.predicate:
+                    predicate_fn = getattr(self, definition.predicate)
+                    if not predicate_fn(node):
+                        continue
+                buckets[bucket].append(self._rule_hint_from_template(definition.hint))
+                detected[bucket].add(definition.key)
 
-        for node in self._walk_relevant_nodes(root):
-            if node.kind == CursorKind.CALL_EXPR:
-                if self._get_called_function_name(node) == "malloc" and "malloc" not in detected:
-                    hints.append(
-                        RuleHint(
-                            category="Pointers",
-                            code_snippet="malloc(n * sizeof(int))",
-                            suggested_rust="Vec::with_capacity(n) or Box::new()",
-                            explanation="Rust uses Vec<T> for dynamic arrays instead of malloc",
-                        )
-                    )
-                    detected.add("malloc")
-
-            if self._is_pointer_arithmetic(node) and "pointer_arith" not in detected:
-                hints.append(
-                    RuleHint(
-                        category="Pointers",
-                        code_snippet="ptr++, *ptr",
-                        suggested_rust="Use iterators or indexed access with Vec",
-                        explanation="Rust prefers safe iteration over pointer arithmetic",
-                    )
-                )
-                detected.add("pointer_arith")
-
-        return hints
-
-    def _check_array_patterns(self, root: Cursor) -> List[RuleHint]:
-        """Check for array indexing patterns using ArraySubscriptExpr nodes."""
-        hints: List[RuleHint] = []
-        for node in self._walk_relevant_nodes(root):
-            if node.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
-                hints.append(
-                    RuleHint(
-                        category="Array",
-                        code_snippet="arr[i]",
-                        suggested_rust="arr[i as usize] or use .get(i)",
-                        explanation="Rust array indices must be usize; explicit cast required",
-                    )
-                )
+            if self._requirements_satisfied(detected):
                 break
-        return hints
 
-    def _check_mixtype_patterns(self, root: Cursor) -> List[RuleHint]:
-        """Check for mixed integer type patterns using the AST."""
-        hints: List[RuleHint] = []
-        detected: Set[str] = set()
-
-        for node in self._walk_relevant_nodes(root):
-            if node.kind == CursorKind.CSTYLE_CAST_EXPR:
-                target_kind = node.type.kind if node.type else None
-                if target_kind in {TypeKind.LONGLONG, TypeKind.LONG, TypeKind.INT} and "casts" not in detected:
-                    hints.append(
-                        RuleHint(
-                            category="Mixtype",
-                            code_snippet="(long long)x * y",
-                            suggested_rust="(x as i64) * (y as i64)",
-                            explanation="Rust requires explicit type conversions with 'as'",
-                        )
-                    )
-                    detected.add("casts")
-
-            if node.kind == CursorKind.BINARY_OPERATOR and self._is_arithmetic_operator(node):
-                children = list(node.get_children())
-                if len(children) == 2:
-                    lhs, rhs = children
-                    if (
-                        lhs.type
-                        and rhs.type
-                        and self._is_numeric_type(lhs.type.kind)
-                        and self._is_numeric_type(rhs.type.kind)
-                        and lhs.type.kind != rhs.type.kind
-                        and "mixed_arith" not in detected
-                    ):
-                        hints.append(
-                            RuleHint(
-                                category="Mixtype",
-                                code_snippet="mixed type arithmetic",
-                                suggested_rust="Use explicit 'as i32', 'as i64', 'as f64' casts",
-                                explanation="Rust doesn't perform implicit numeric conversions",
-                            )
-                        )
-                        detected.add("mixed_arith")
-
-        return hints
+        ordered_hints: List[RuleHint] = []
+        for bucket in self.BUCKET_ORDER:
+            ordered_hints.extend(buckets[bucket])
+        return ordered_hints
 
 def format_hints(hints: List[RuleHint]) -> str:
     """Format rule hints into a string for the LLM."""

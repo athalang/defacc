@@ -6,10 +6,11 @@ Delegates to main module.
 
 if __name__ == "__main__":
     import argparse
+    from pathlib import Path
     import dspy
     from guardian.settings import settings
     from guardian.pipeline import GUARDIANPipeline
-    from guardian.demo import run_demo, run_all_tests
+    from guardian.demo import run_demo, run_all_tests, run_project_demo
     from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
     parser = argparse.ArgumentParser(description="GUARDIAN C-to-Rust Translation Demo")
@@ -24,6 +25,17 @@ if __name__ == "__main__":
         action="store_true",
         help="Run all test cases",
     )
+    parser.add_argument(
+        "--compile-commands",
+        type=Path,
+        help="Run translation on a compile_commands.json file",
+    )
+    parser.add_argument(
+        "--output-rust",
+        type=Path,
+        default=Path("project_output.rs"),
+        help="When translating a project, write the concatenated Rust to this file (default: project_output.rs)",
+    )
     args = parser.parse_args()
 
     # Configure LLM and create pipeline
@@ -36,8 +48,9 @@ if __name__ == "__main__":
     dspy.configure(lm=lm)
     pipeline = GUARDIANPipeline(lm=lm)
 
-    # Run demo or all tests
-    if args.all:
+    if args.compile_commands:
+        run_project_demo(pipeline, args.compile_commands, output_path=args.output_rust)
+    elif args.all:
         run_all_tests(pipeline)
     else:
         run_demo(pipeline, args.test)

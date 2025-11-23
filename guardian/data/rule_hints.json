@@ -1,0 +1,100 @@
+[
+  {
+    "key": "scanf",
+    "bucket": "io",
+    "hint": {
+      "category": "I/O",
+      "code_snippet": "scanf(\"%d%d\", &a, &b)",
+      "suggested_rust": "use read_to_string() + split_whitespace() + parse()",
+      "explanation": "scanf in C reads formatted input; Rust uses string parsing"
+    },
+    "kinds": ["CALL_EXPR"],
+    "call_name": "scanf",
+    "predicate": null,
+    "required": true
+  },
+  {
+    "key": "printf",
+    "bucket": "io",
+    "hint": {
+      "category": "I/O",
+      "code_snippet": "printf(\"...\", ...)",
+      "suggested_rust": "println!(\"...\", ...)",
+      "explanation": "Use println! macro for formatted output in Rust"
+    },
+    "kinds": ["CALL_EXPR"],
+    "call_name": "printf",
+    "predicate": null,
+    "required": true
+  },
+  {
+    "key": "malloc",
+    "bucket": "pointer",
+    "hint": {
+      "category": "Pointers",
+      "code_snippet": "malloc(n * sizeof(int))",
+      "suggested_rust": "Vec::with_capacity(n) or Box::new()",
+      "explanation": "Rust uses Vec<T> for dynamic arrays instead of malloc"
+    },
+    "kinds": ["CALL_EXPR"],
+    "call_name": "malloc",
+    "predicate": null,
+    "required": true
+  },
+  {
+    "key": "pointer_arith",
+    "bucket": "pointer",
+    "hint": {
+      "category": "Pointers",
+      "code_snippet": "ptr++, *ptr",
+      "suggested_rust": "Use iterators or indexed access with Vec",
+      "explanation": "Rust prefers safe iteration over pointer arithmetic"
+    },
+    "kinds": ["UNARY_OPERATOR", "BINARY_OPERATOR"],
+    "call_name": null,
+    "predicate": "_is_pointer_arithmetic",
+    "required": true
+  },
+  {
+    "key": "array_index",
+    "bucket": "array",
+    "hint": {
+      "category": "Array",
+      "code_snippet": "arr[i]",
+      "suggested_rust": "arr[i as usize] or use .get(i)",
+      "explanation": "Rust array indices must be usize; explicit cast required"
+    },
+    "kinds": ["ARRAY_SUBSCRIPT_EXPR"],
+    "call_name": null,
+    "predicate": null,
+    "required": true
+  },
+  {
+    "key": "casts",
+    "bucket": "mixtype",
+    "hint": {
+      "category": "Mixtype",
+      "code_snippet": "(long long)x * y",
+      "suggested_rust": "(x as i64) * (y as i64)",
+      "explanation": "Rust requires explicit type conversions with 'as'"
+    },
+    "kinds": ["CSTYLE_CAST_EXPR"],
+    "call_name": null,
+    "predicate": "_is_integer_cast",
+    "required": true
+  },
+  {
+    "key": "mixed_arith",
+    "bucket": "mixtype",
+    "hint": {
+      "category": "Mixtype",
+      "code_snippet": "mixed type arithmetic",
+      "suggested_rust": "Use explicit 'as i32', 'as i64', 'as f64' casts",
+      "explanation": "Rust doesn't perform implicit numeric conversions"
+    },
+    "kinds": ["BINARY_OPERATOR"],
+    "call_name": null,
+    "predicate": "_is_mixed_numeric_arithmetic",
+    "required": true
+  }
+]

@@ -1,8 +1,8 @@
+import re
 import subprocess
 import tempfile
-import re
 from pathlib import Path
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 class RustCompiler:
     def _filter_rustc_internal_errors(self, errors: str) -> str:
@@ -52,7 +52,14 @@ class RustCompiler:
 
         return '\n'.join(filtered_lines)
 
-    def compile(self, rust_code: str) -> Tuple[bool, str]:
+    def compile(
+        self,
+        rust_code: str,
+        *,
+        crate_type: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+        timeout: int = 30,
+    ) -> Tuple[bool, str]:
         """
         Compile Rust code and return (success, errors/output).
 
@@ -62,55 +69,50 @@ class RustCompiler:
         Returns:
             Tuple of (compilation_success, error_messages)
         """
-        # Create a temporary file for the Rust code
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
-            f.write(rust_code)
-            temp_file = Path(f.name)
-
         try:
-            # Detect if code has a main function to determine crate type
-            has_main = re.search(r'\bfn\s+main\s*\(', rust_code) is not None
-            crate_type = "bin" if has_main else "lib"
+            with tempfile.TemporaryDirectory(prefix="irene-rs-") as tmpdir:
+                tmp_path = Path(tmpdir)
+                source_path = tmp_path / "input.rs"
+                source_path.write_text(rust_code)
+                output_path = tmp_path / "a.out"
 
-            # Create temp output file for binary
-            with tempfile.NamedTemporaryFile(delete=False) as out_file:
-                output_path = out_file.name
+                resolved_crate_type = crate_type or self._detect_crate_type(rust_code)
+                args = [
+                    "rustc",
+                    str(source_path),
+                    "--crate-type",
+                    resolved_crate_type,
+                    "-o",
+                    str(output_path),
+                ]
+                if extra_args:
+                    args.extend(extra_args)
 
-            # Run rustc
-            result = subprocess.run(
-                ["rustc", str(temp_file), "--crate-type", crate_type, "-o", output_path],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+                result = subprocess.run(
+                    args,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
 
-            # Clean up output file
-            try:
-                Path(output_path).unlink()
-            except Exception:
-                pass
+                success = result.returncode == 0
+                errors = result.stderr if result.stderr else result.stdout
 
-            success = result.returncode == 0
-            errors = result.stderr if result.stderr else result.stdout
+                if errors and not success:
+                    errors = self._filter_rustc_internal_errors(errors)
 
-            # Filter out rustc internal errors that confuse the LLM
-            if errors and not success:
-                errors = self._filter_rustc_internal_errors(errors)
-
-            return success, errors
-
+                return success, errors
         except subprocess.TimeoutExpired:
-            return False, "Compilation timed out after 30 seconds"
+            return False, f"Compilation timed out after {timeout} seconds"
         except FileNotFoundError:
             return False, "rustc not found. Please install Rust: https://rustup.rs/"
         except Exception as e:
             return False, f"Compilation error: {str(e)}"
-        finally:
-            # Clean up temp file
-            try:
-                temp_file.unlink()
-            except Exception:
-                pass
+
+    @staticmethod
+    def _detect_crate_type(rust_code: str) -> str:
+        has_main = re.search(r"\bfn\s+main\s*\(", rust_code) is not None
+        return "bin" if has_main else "lib"
 
 def check_rustc_available() -> bool:
     try:

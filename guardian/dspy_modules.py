@@ -1,17 +1,29 @@
 import dspy
 
 class CodeSummary(dspy.Signature):
-    c_code: str = dspy.InputField(desc="C source code to analyse")
-    arguments: str = dspy.OutputField(desc="Input arguments, their types and their semantics")
-    outputs: str = dspy.OutputField(desc="Return values, their types and their semantics")
-    function: str = dspy.OutputField(desc="What the code does at a high level")
+    c_code: str = dspy.InputField(desc="C source code snippet to analyse")
+    declaration_context: str = dspy.InputField(
+        desc="Plain-text description of what this snippet declares (function, struct, enum, typedef, SCC chunk, etc.)"
+    )
+    arguments: str = dspy.OutputField(desc="Inputs, members, or components involved in this declaration")
+    outputs: str = dspy.OutputField(
+        desc="Results, exposed data, or observable state produced/represented by this declaration"
+    )
+    function: str = dspy.OutputField(desc="High-level purpose or semantics regardless of declaration kind")
+
 
 class CToRust(dspy.Signature):
     c_code: str = dspy.InputField(desc="C source code to translate")
     rule_hints: str = dspy.InputField(desc="Translation rules and patterns to apply")
     examples: str = dspy.InputField(desc="Similar C-to-Rust translation examples")
     summary: str = dspy.InputField(desc="High-level summary of the code's purpose")
-    rust_code: str = dspy.OutputField(desc="Pure Rust source code using ONLY std library, no markdown, no explanations")
+    declaration_context: str = dspy.InputField(
+        desc="Description of the declarations in this snippet so the translator can handle functions, structs, enums, etc."
+    )
+    dependency_context: str = dspy.InputField(
+        desc="Summaries of already-translated upstream declarations you may reuse but must not redefine"
+    )
+    rust_code: str = dspy.OutputField(desc="Pure Rust source code only using std library. NO MARKDOWN, NO EXPLANATIONS. NO MARKDOWN.")
 
 class RefineRust(dspy.Signature):
     """Fix Rust code based on compiler errors.
