@@ -25,7 +25,7 @@ class HintDefinition:
 
 BUCKET_ORDER: Tuple[str, ...] = ("io", "pointer", "array", "mixtype")
 def _load_hint_definitions() -> Tuple[HintDefinition, ...]:
-    data_path = resources.files("irene.data").joinpath("rule_hints.json")
+    data_path = resources.files("guardian.data").joinpath("rule_hints.json")
     with data_path.open("r", encoding="utf-8") as fh:
         raw_definitions = json.load(fh)
 

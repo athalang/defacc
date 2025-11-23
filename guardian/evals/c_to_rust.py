@@ -45,14 +45,15 @@ def translate_c_to_rust():
 
             # Translate
             result = pipeline.translate(c_code, verbose=False)
+            compilation = result.compilation
 
             # Store result in state
-            state.output.completion = "compiled" if result['compiled'] else "failed"
-            state.metadata["c_code"] = c_code,
-            state.metadata["rust_code"] = result['rust_code']
-            state.metadata["compiled"] = result['compiled']
-            state.metadata["iterations"] = result['iterations']
-            state.metadata["errors"] = result.get('errors', '')
+            state.output.completion = "compiled" if compilation.success else "failed"
+            state.metadata["c_code"] = c_code
+            state.metadata["rust_code"] = result.rust_code
+            state.metadata["compiled"] = compilation.success
+            state.metadata["iterations"] = compilation.iterations
+            state.metadata["errors"] = compilation.errors or ""
 
         return state
 

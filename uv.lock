@@ -901,18 +901,23 @@ name = "guardian"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "compiledb" },
     { name = "dspy" },
     { name = "inspect-ai" },
     { name = "libclang" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "networkx", version = "3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pydantic-settings" },
     { name = "rank-bm25" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "compiledb", specifier = ">=0.10.7" },
     { name = "dspy", specifier = ">=0.1.4" },
     { name = "inspect-ai", specifier = ">=0.3.148" },
     { name = "libclang", specifier = ">=18.1.1" },
+    { name = "networkx", specifier = ">=3.4.2" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
 ]
