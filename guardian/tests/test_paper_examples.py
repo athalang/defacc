@@ -111,7 +111,7 @@ int main() {
 
 # ===== ADVERSARIAL TEST CASES =====
 # These test cases demonstrate common security vulnerabilities
-# IRENE should prevent these from becoming unsafe Rust code
+# GUARDIAN should prevent these from becoming unsafe Rust code
 
 # Test case 8: Buffer overflow risk via strcpy
 TEST_BUFFER_OVERFLOW = """

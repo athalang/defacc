@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Convenience wrapper for running IRENE from project root.
+Convenience wrapper for running GUARDIAN from project root.
 Delegates to main module.
 """
 
 if __name__ == "__main__":
     import argparse
     import dspy
-    from irene.settings import settings
-    from irene.pipeline import IRENEPipeline
-    from irene.demo import run_demo, run_all_tests
-    from irene.tests.test_paper_examples import ALL_TEST_CASES
+    from guardian.settings import settings
+    from guardian.pipeline import GUARDIANPipeline
+    from guardian.demo import run_demo, run_all_tests
+    from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
-    parser = argparse.ArgumentParser(description="IRENE C-to-Rust Translation Demo")
+    parser = argparse.ArgumentParser(description="GUARDIAN C-to-Rust Translation Demo")
     parser.add_argument(
         "--test",
         type=str,
@@ -34,7 +34,7 @@ if __name__ == "__main__":
         api_key=settings.api_key,
     )
     dspy.configure(lm=lm)
-    pipeline = IRENEPipeline(lm=lm)
+    pipeline = GUARDIANPipeline(lm=lm)
 
     # Run demo or all tests
     if args.all:
