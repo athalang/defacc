@@ -74,12 +74,8 @@ def analyze_results(log_data):
         results["total_unsafe_blocks"] += metadata.get("total_unsafe", 0)
         results["total_iterations"] += metadata.get("iterations", 1)
 
-    # Calculate accuracy
-    scores = log_data.get("results", {}).get("scores", [])
-    for score in scores:
-        if score.get("name") == "comparison_scorer":
-            accuracy = score.get("metrics", {}).get("accuracy", {})
-            results["accuracy"] = accuracy.get("value", 0.0)
+    # Calculate accuracy from actual sample data (not metrics, which may be incorrect)
+    results["accuracy"] = results["compiled"] / results["total_samples"] if results["total_samples"] > 0 else 0.0
 
     results["avg_iterations"] = results["total_iterations"] / results["total_samples"] if results["total_samples"] > 0 else 0
 
