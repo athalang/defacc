@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 from clang.cindex import Cursor, CursorKind, TypeKind
 
-from irene.clang_utils import LibclangContext, cursor_kind_slug
+from guardian.clang_utils import LibclangContext, cursor_kind_slug
 
 @dataclass
 class RuleHint:

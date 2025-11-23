@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from irene.clang_utils import LibclangContext, normalize_path
-from irene.dependency_graph import (
+from guardian.clang_utils import LibclangContext, normalize_path
+from guardian.dependency_graph import (
     ProjectGraph,
     ProjectGraphBuilder,
     SCCComponent,
@@ -28,7 +28,7 @@ from irene.dependency_graph import (
     build_dependency_graph,
     collect_translation_unit_data,
 )
-from irene.rule_analyzer import StaticRuleAnalyzer
+from guardian.rule_analyzer import StaticRuleAnalyzer
 
 
 @dataclass

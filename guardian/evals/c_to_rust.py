@@ -9,10 +9,10 @@ from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
-from irene.llm import build_lm
-from irene.pipeline import IRENEPipeline
-from irene.project_runner import translate_compile_commands
-from irene.tests.test_paper_examples import ALL_TEST_CASES
+from guardian.llm import build_lm
+from guardian.pipeline import IRENEPipeline
+from guardian.project_runner import translate_compile_commands
+from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
 
 @solver

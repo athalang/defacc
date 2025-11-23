@@ -4,7 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from clang.cindex import Cursor, CursorKind, TranslationUnit
 import networkx as nx
 
-from irene.clang_utils import (
+from guardian.clang_utils import (
     LibclangContext,
     cursor_in_files,
     cursor_kind_slug,
@@ -13,7 +13,7 @@ from irene.clang_utils import (
     normalize_path,
     stable_cursor_id,
 )
-from irene.rule_analyzer import RuleHint
+from guardian.rule_analyzer import RuleHint
 
 
 @dataclass

@@ -7,9 +7,9 @@ Delegates to main module.
 if __name__ == "__main__":
     import argparse
     from pathlib import Path
-    from irene.llm import build_pipeline
-    from irene.demo import run_demo, run_all_tests, run_project_demo
-    from irene.tests.test_paper_examples import ALL_TEST_CASES
+    from guardian.llm import build_pipeline
+    from guardian.demo import run_demo, run_all_tests, run_project_demo
+    from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
     parser = argparse.ArgumentParser(description="IRENE C-to-Rust Translation Demo")
     parser.add_argument(
