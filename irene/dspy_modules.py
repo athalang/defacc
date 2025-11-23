@@ -23,27 +23,31 @@ class CToRust(dspy.Signature):
     dependency_context: str = dspy.InputField(
         desc="Summaries of already-translated upstream declarations you may reuse but must not redefine"
     )
-    rust_code: str = dspy.OutputField(desc="Pure Rust source code only using std library. NO MARKDOWN, NO EXPLANATIONS. NO MARKDOWN.")
-
-class RefineRust(dspy.Signature):
-    """Fix Rust code based on compiler errors.
-
-    Analyze the rustc errors and produce corrected code that compiles successfully
-    while maintaining the original functionality.
-
-    REQUIREMENTS:
-    - Use ONLY Rust standard library (std::*). NO external crates
-    - Fix ONLY the errors shown. Do not add unnecessary features or dependencies
-    - Return ONLY valid Rust source code that compiles with rustc
-    - Do NOT include markdown code fences (```rust or ```)
-    - Do NOT include explanatory text about what you fixed
-    - Do NOT include file names or cargo configuration
-    - Do NOT include any prose or instructions to the user
-    """
-
-    rust_code: str = dspy.InputField(desc="The Rust code that failed to compile")
-    errors: str = dspy.InputField(desc="Compiler error messages from rustc")
-    fixed_code: str = dspy.OutputField(desc="Pure Rust source code using ONLY std library, no markdown, no explanations")
+    workspace_context: str = dspy.InputField(
+        desc=(
+            "Latest Rust workspace contents (trimmed). These definitions already exist."
+            "DO NOT REDEFINE THEM AGAIN. Emit diffs only."
+        )
+    )
+    workspace_file: str = dspy.InputField(
+        desc=(
+            "Absolute path to the Rust workspace file to edit."
+            " You MUST output a unified diff against this file using '---'/'+++' headers"
+            " and @@ hunk markers."
+        )
+    )
+    translation_constraints: str = dspy.InputField(
+        desc="Hard requirements on the shape/quantity of Rust declarations and formatting"
+    )
+    compiler_errors: str = dspy.InputField(
+        desc="Rust compiler errors from the previous attempt (empty on first iteration)"
+    )
+    patch_diff: str = dspy.OutputField(
+        desc=(
+            "Unified diff (standard patch format) describing modifications to the workspace file."
+            " MUST include file headers and hunk sections."
+        )
+    )
 
 class IRENEModules:
     """Container for all DSPy modules used in IRENE pipeline."""
@@ -51,4 +55,3 @@ class IRENEModules:
     def __init__(self):
         self.summarizer = dspy.ChainOfThought(CodeSummary)
         self.translator = dspy.ChainOfThought(CToRust)
-        self.refiner = dspy.ChainOfThought(RefineRust)

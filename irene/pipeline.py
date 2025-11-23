@@ -1,4 +1,5 @@
 import os
+import re
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ from .compiler import RustCompiler, check_rustc_available
 from .dspy_modules import IRENEModules
 from .dependency_graph import DeclarationRecord, SCCComponent
 from .project_scanner import build_project_graph
+from .workspace import RustWorkspace
 
 @dataclass
 class CompilationResult:
@@ -69,6 +71,12 @@ class IRENEPipeline:
         summary_override: Optional[str] = None,
         declaration_context: Optional[str] = None,
         dependency_context: Optional[str] = None,
+        workspace_context: Optional[str] = None,
+        workspace_highlight: Optional[str] = None,
+        workspace_path: Optional[Path] = None,
+        expected_declarations: Optional[int] = None,
+        c_declaration_names: Optional[List[str]] = None,
+        workspace_handle: Optional[RustWorkspace] = None,
     ) -> TranslationResult:
         """
         Translate C code to Rust using the IRENE framework.
@@ -80,6 +88,24 @@ class IRENEPipeline:
                 libclang analysis
             summary_override: Optional plain-text summary to feed directly to the translator
             dependency_context: Optional summaries of upstream declarations that already exist
+            workspace_context: Optional Rust source code that should be prepended
+                before compiling the generated snippet. Used when compiling projects
+                so upstream definitions are available to rustc.
+            workspace_highlight: Optional curated snippet from the workspace
+                (e.g., immediate SCC dependencies) that should be surfaced
+                prominently to the LM even if trimmed from the main workspace view.
+            workspace_path: Optional filesystem path to the persistent workspace file.
+                When provided, the compiler will read the latest contents directly
+                from disk before invoking rustc.
+            expected_declarations: Optional count of top-level declarations represented
+                in the C input. When provided, the translator is instructed to emit
+                exactly this many Rust declarations (no more, no less).
+            c_declaration_names: Optional ordered list of declaration names from the
+                original C snippet. Used to provide naming guidance (e.g. CamelCase)
+                when generating Rust identifiers.
+            workspace_handle: Optional RustWorkspace object. When provided, the
+                translator/refiner must emit unified diffs that mutate this file
+                instead of returning standalone code snippets.
 
         Returns:
             Dictionary containing:
@@ -103,16 +129,46 @@ class IRENEPipeline:
             verbose=verbose,
             declaration_context=root_context,
         )
-        rust_code = self._initial_translation(
-            c_code,
-            computed_hints,
-            examples,
-            summary_payload,
-            verbose,
-            declaration_context=root_context,
-            dependency_context=dependency_context,
+        workspace_obj = workspace_handle
+        if not workspace_obj and workspace_path:
+            # Avoid resetting existing files unintentionally.
+            workspace_obj = RustWorkspace(Path(workspace_path), reset=False)
+        if not workspace_obj:
+            raise RuntimeError("Patch-based translation requires a workspace path.")
+
+        workspace_file_path = workspace_obj.path
+        translator_inputs = {
+            "c_code": c_code,
+            "rule_hints": format_hints(computed_hints),
+            "examples": format_examples(examples),
+            "summary": summary_payload,
+            "declaration_context": root_context or "",
+            "dependency_context": dependency_context or "",
+            "translation_constraints": self._translation_constraints(
+                expected_declarations,
+                c_declaration_names,
+                workspace_file=workspace_file_path,
+            ),
+            "workspace_file": str(workspace_file_path),
+        }
+
+        workspace_view = workspace_context or workspace_obj.current_text()
+        initial_patch = self._generate_patch(
+            translator_inputs=translator_inputs,
+            workspace_view=workspace_view,
+            workspace_highlight=workspace_highlight,
+            compiler_errors="",
+            verbose=verbose,
         )
-        final_code, compilation = self._compile_with_refinement(rust_code, verbose)
+
+        final_code, compilation = self._compile_with_refinement(
+            verbose,
+            workspace_context=workspace_context,
+            workspace_highlight=workspace_highlight,
+            initial_patch=initial_patch,
+            workspace_handle=workspace_obj,
+            translator_inputs=translator_inputs,
+        )
 
         artifacts = TranslationArtifacts(
             rule_hints=computed_hints,
@@ -121,9 +177,15 @@ class IRENEPipeline:
             raw_summary=summary_obj,
         )
 
-        return TranslationResult(rust_code=final_code, compilation=compilation, artifacts=artifacts)
+        final_rust = workspace_obj.current_text() if workspace_obj else final_code
+        return TranslationResult(rust_code=final_rust, compilation=compilation, artifacts=artifacts)
 
-    def translate_project(self, compile_commands: Path, verbose: bool = True) -> List[dict]:
+    def translate_project(
+        self,
+        compile_commands: Path,
+        verbose: bool = True,
+        workspace_path: Optional[Path] = None,
+    ) -> List[dict]:
         """Translate an entire project by iterating over SCCs from the project scanner."""
         db_path = Path(compile_commands)
         project_graph = build_project_graph(db_path)
@@ -133,6 +195,7 @@ class IRENEPipeline:
                 print("No strongly connected components found for translation.")
             return []
 
+        workspace = RustWorkspace(Path(workspace_path)) if workspace_path else None
         component_dependencies = self._map_component_dependencies(project_graph.graph, components)
         component_summaries: Dict[int, List[dict]] = {}
         results: List[dict] = []
@@ -161,6 +224,11 @@ class IRENEPipeline:
                 component_dependencies=component_dependencies,
                 component_summaries=component_summaries,
             )
+            workspace_context = workspace.current_text() if workspace else None
+            workspace_highlight = self._workspace_dependency_snippet(
+                workspace_context,
+                component_dependencies.get(component.index),
+            ) if workspace_context else None
 
             translation = self.translate(
                 c_code=c_source,
@@ -169,6 +237,12 @@ class IRENEPipeline:
                 summary_override=summary_text or None,
                 declaration_context=component_context,
                 dependency_context=dependency_context or None,
+                workspace_context=workspace_context,
+                workspace_highlight=workspace_highlight,
+                workspace_path=workspace.path if workspace else None,
+                expected_declarations=len(component.declarations),
+                c_declaration_names=[decl.name for decl in component.declarations],
+                workspace_handle=workspace,
             )
 
             results.append(
@@ -180,6 +254,9 @@ class IRENEPipeline:
                 }
             )
             component_summaries[component.index] = declaration_summaries
+            if workspace and translation.compilation.success:
+                # Workspace already mutated by patches; no append needed.
+                pass
 
         return results
 
@@ -245,63 +322,292 @@ Code Summary:
                 print("Step 3: Using provided summary.\n")
         return summary_obj, summary_payload or ""
 
-    def _initial_translation(
+    def _generate_patch(
         self,
-        c_code: str,
-        rule_hints: List[RuleHint],
-        examples: List[TranslationExample],
-        summary_payload: str,
+        *,
+        translator_inputs: dict,
+        workspace_view: Optional[str],
+        workspace_highlight: Optional[str],
+        compiler_errors: Optional[str],
         verbose: bool,
-        declaration_context: Optional[str] = None,
-        dependency_context: Optional[str] = None,
     ) -> str:
-        if verbose:
-            print("Step 4: Translating to Rust...")
-        rust_result = self.modules.translator(
-            c_code=c_code,
-            rule_hints=format_hints(rule_hints),
-            examples=format_examples(examples),
-            summary=summary_payload,
-            declaration_context=declaration_context or "",
-            dependency_context=dependency_context or "",
+        workspace_prompt = self._workspace_prompt_fragment(
+            workspace_view,
+            workspace_highlight,
         )
+        if verbose and workspace_prompt:
+            print(
+                "  Workspace prompt provided to translator "
+                f"(length={len(workspace_prompt)} characters)."
+            )
+        payload = dict(translator_inputs)
+        payload.update(
+            {
+                "workspace_context": workspace_prompt,
+                "compiler_errors": compiler_errors or "",
+            }
+        )
+        rust_result = self.modules.translator(**payload)
+        patch = (rust_result.patch_diff or "").strip() if hasattr(rust_result, "patch_diff") else None
+        workspace_file = payload.get("workspace_file")
+        if workspace_file and not patch:
+            raise RuntimeError(
+                "Translator did not produce a unified diff. "
+                "Ensure the LM outputs a valid 'patch_diff' with ---/+++ headers."
+            )
         if verbose:
-            print("  Initial translation complete\n")
-        return rust_result.rust_code
+            print("  Patch generation complete\n")
+        return patch or ""
 
-    def _compile_with_refinement(self, rust_code: str, verbose: bool) -> Tuple[str, CompilationResult]:
+    def _compile_with_refinement(
+        self,
+        verbose: bool,
+        *,
+        workspace_context: Optional[str] = None,
+        workspace_highlight: Optional[str] = None,
+        initial_patch: Optional[str] = None,
+        workspace_handle: Optional[RustWorkspace] = None,
+        translator_inputs: Optional[dict] = None,
+    ) -> Tuple[str, CompilationResult]:
         if verbose:
-            print("Step 5: Compiling and refining...")
+            print("Step 5: Applying patches and compiling...")
 
-        errors = ""
+        if not workspace_handle or not translator_inputs:
+            raise RuntimeError("Workspace handle and translator inputs are required for patch compilation.")
+
+        workspace_view = workspace_context or workspace_handle.current_text()
+        pending_patch = initial_patch
         compiled = False
+        errors = ""
+
         for iteration in range(self.max_iterations):
-            success, errors = self.compiler.compile(rust_code)
-            if success:
-                compiled = True
+            if pending_patch:
+                snapshot = workspace_handle.snapshot()
+                applied, apply_error = workspace_handle.apply_patch(pending_patch)
+                if not applied:
+                    errors = f"Failed to apply patch: {apply_error}"
+                    if verbose:
+                        print(f"    Patch apply failed: {apply_error.strip()}")
+                        print("    Patch preview:\n" + pending_patch[:400])
+                    workspace_handle.write_text(snapshot)
+                else:
+                    workspace_view = workspace_handle.current_text()
+                    success, errors = self.compiler.compile(workspace_view)
+                    if success:
+                        compiled = True
+                        if verbose:
+                            print(f"  ✓ Compilation successful after {iteration + 1} iteration(s)!\n")
+                        break
+                    if verbose:
+                        print(f"  ✗ Compilation failed (iteration {iteration + 1}/{self.max_iterations})")
+                        print(f"    Errors: {errors[:200]}...")
+                    workspace_handle.write_text(snapshot)
+                    workspace_view = snapshot
+            else:
+                errors = "Missing patch diff from model"
                 if verbose:
-                    print(f"  ✓ Compilation successful after {iteration + 1} iteration(s)!\n")
+                    print("    No patch diff provided; retrying translator...")
+
+            if iteration >= self.max_iterations - 1:
+                if verbose:
+                    print("    Max iterations reached.\n")
                 break
 
             if verbose:
-                print(f"  ✗ Compilation failed (iteration {iteration + 1}/{self.max_iterations})")
-                print(f"    Errors: {errors[:200]}...")
-
-            if iteration < self.max_iterations - 1:
-                if verbose:
-                    print("    Refining code...")
-                refined = self.modules.refiner(rust_code=rust_code, errors=errors)
-                rust_code = refined.fixed_code
-            else:
-                if verbose:
-                    print("    Max iterations reached.\n")
+                print("    Re-requesting patch from translator...")
+            pending_patch = self._generate_patch(
+                translator_inputs=translator_inputs,
+                workspace_view=workspace_view,
+                workspace_highlight=workspace_highlight,
+                compiler_errors=errors,
+                verbose=verbose,
+            )
 
         result = CompilationResult(
             success=compiled,
             iterations=iteration + 1,
             errors=None if compiled else errors,
         )
-        return rust_code, result
+        return workspace_handle.current_text(), result
+
+    @staticmethod
+    def _workspace_prompt_fragment(
+        workspace_context: Optional[str],
+        highlight: Optional[str] = None,
+        limit: int = 6000,
+    ) -> str:
+        """Return workspace snippet with prioritized sections and symbol summary."""
+        sections: List[str] = []
+        focus = (highlight or "").strip()
+        if focus:
+            sections.append(focus)
+        elif workspace_context:
+            trimmed = workspace_context.strip()
+            if trimmed:
+                truncated = len(trimmed) > limit
+                body = trimmed if not truncated else trimmed[-limit:]
+                signature_body = IRENEPipeline._declaration_signature_block(body)
+                if not signature_body:
+                    return ""
+                symbol_lines = IRENEPipeline._workspace_symbol_summary(trimmed)
+
+                header_lines: List[str] = []
+                if symbol_lines:
+                    header_lines.append("// Existing workspace declarations available for reuse:")
+                    header_lines.extend(f"// - {item}" for item in symbol_lines)
+                if truncated:
+                    header_lines.append(f"// [Workspace truncated to last {limit} characters]")
+
+                if header_lines:
+                    header = "\n".join(header_lines)
+                    sections.append(f"{header}\n\n{signature_body}")
+                else:
+                    sections.append(signature_body)
+
+        return "\n\n".join(part for part in sections if part).strip()
+
+    @staticmethod
+    def _translation_constraints(
+        expected_declarations: Optional[int],
+        c_declaration_names: Optional[List[str]] = None,
+        workspace_file: Optional[Path] = None,
+    ) -> str:
+        rules: List[str] = [
+            "Output pure Rust code only. No comments, markdown, or explanatory text.",
+            "Never add placeholder headings like 'assuming X exists'; instead, reference existing items or omit them.",
+            "Do not introduce new top-level declarations beyond what the C snippet defines.",
+            "Follow Rust naming conventions: structs/enums/types/traits must be UpperCamelCase; update all uses when renaming.",
+            "Use only fields or methods that exist in the provided structs/enums. Do NOT invent helper methods like `as_bytes`/`as_ref` unless already defined in the workspace context.",
+            "Avoid redundant parentheses in control-flow conditions (e.g., use `if flag` not `if (flag)`).",
+        ]
+        if workspace_file:
+            rules.append(
+                f"Produce a unified diff that edits {workspace_file} in-place."
+                " Include '---'/'+++' headers and @@ hunks referencing that file."
+            )
+        if expected_declarations and expected_declarations > 0:
+            decl_word = "declaration" if expected_declarations == 1 else "declarations"
+            rules.append(
+                f"Emit exactly {expected_declarations} top-level Rust {decl_word}, mirroring the provided C declarations."
+            )
+        for name in c_declaration_names or []:
+            target = IRENEPipeline._rust_camel_case(name)
+            if not target or target == name:
+                continue
+            rules.append(
+                f"Rename `{name}` to `{target}` in Rust and update all references to use `{target}`."
+            )
+        return "\n".join(f"- {rule}" for rule in rules)
+
+    @staticmethod
+    def _workspace_symbol_summary(workspace_context: str, max_symbols: int = 40) -> List[str]:
+        pattern = re.compile(
+            r"^\s*(?:pub\s+)?(struct|enum|trait|fn|type|const|static)\s+([A-Za-z_][A-Za-z0-9_]*)",
+            re.MULTILINE,
+        )
+        symbols: List[str] = []
+        seen: Set[str] = set()
+        for match in pattern.finditer(workspace_context):
+            name = match.group(2)
+            if name in seen:
+                continue
+            seen.add(name)
+            symbols.append(f"{match.group(1)} {name}")
+            if len(symbols) >= max_symbols:
+                break
+        return symbols
+
+    @staticmethod
+    def _rust_camel_case(name: str) -> str:
+        parts = re.split(r"[^A-Za-z0-9]+", name)
+        filtered = [part for part in parts if part]
+        if not filtered:
+            return name
+        camel = "".join(part[:1].upper() + part[1:] for part in filtered)
+        return camel
+
+    @staticmethod
+    def _declaration_signature_block(snippet: Optional[str]) -> str:
+        if not snippet:
+            return ""
+        patterns = [
+            re.compile(r"^\s*(?:pub\s+)?(?:unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*"),
+            re.compile(r"^\s*(?:pub\s+)?(struct|enum|trait)\s+[A-Za-z_][A-Za-z0-9_]*"),
+            re.compile(r"^\s*(?:pub\s+)?type\s+[A-Za-z_][A-Za-z0-9_]*"),
+            re.compile(r"^\s*(?:pub\s+)?const\s+[A-Za-z_][A-Za-z0-9_]*"),
+            re.compile(r"^\s*(?:pub\s+)?static\s+[A-Za-z_][A-Za-z0-9_]*"),
+            re.compile(r"^\s*(?:pub\s+)?impl\s+[^{]+"),
+        ]
+        signatures: List[str] = []
+        seen: Set[str] = set()
+        for raw in snippet.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            if any(pat.search(line) for pat in patterns):
+                normalized = line.rstrip("{").rstrip()
+                if normalized not in seen:
+                    signatures.append(normalized)
+                    seen.add(normalized)
+        return "\n".join(signatures)
+
+    @staticmethod
+    def _workspace_dependency_snippet(
+        workspace_context: Optional[str],
+        dependency_indices: Optional[Iterable[int]],
+        char_limit: int = 4000,
+    ) -> Optional[str]:
+        if not workspace_context or not dependency_indices:
+            return None
+
+        sections = IRENEPipeline._workspace_sections(workspace_context)
+        ordered = [idx for idx in sorted(set(dependency_indices or []))]
+        if not ordered:
+            return None
+
+        snippets: List[str] = []
+        total = 0
+        for idx in ordered:
+            block = sections.get(idx)
+            if not block:
+                continue
+            block = block.strip()
+            if not block:
+                continue
+            block_len = len(block)
+            if total and total + block_len > char_limit:
+                break
+            if not total and block_len > char_limit:
+                block = block[-char_limit:]
+                block_len = len(block)
+            snippets.append(block)
+            total += block_len
+            if total >= char_limit:
+                break
+
+        if not snippets:
+            return None
+
+        header = "// Immediate upstream SCC excerpts (reuse existing structs/types):"
+        return f"{header}\n\n" + "\n\n".join(snippets)
+
+    @staticmethod
+    def _workspace_sections(workspace_context: str) -> Dict[int, str]:
+        pattern = re.compile(r"^//\s*SCC\s+(\d+):.*$", re.MULTILINE)
+        matches = list(pattern.finditer(workspace_context))
+        if not matches:
+            return {}
+
+        sections: Dict[int, str] = {}
+        for i, match in enumerate(matches):
+            try:
+                idx = int(match.group(1))
+            except ValueError:
+                continue
+            start = match.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(workspace_context)
+            sections[idx] = workspace_context[start:end].strip()
+        return sections
 
     def _summaries_for_declarations(
         self, declarations: Iterable[DeclarationRecord], verbose: bool = True

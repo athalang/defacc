@@ -56,6 +56,8 @@ class RustCompiler:
         self,
         rust_code: str,
         *,
+        workspace_prelude: Optional[str] = None,
+        workspace_path: Optional[Path] = None,
         crate_type: Optional[str] = None,
         extra_args: Optional[List[str]] = None,
         timeout: int = 30,
@@ -65,6 +67,10 @@ class RustCompiler:
 
         Args:
             rust_code: The Rust source code to compile
+            workspace_prelude: Optional Rust snippet to prepend before compilation.
+                Used when the caller maintains an in-memory workspace.
+            workspace_path: Optional path to a persistent workspace file. When
+                provided, the file contents are prepended before compiling.
 
         Returns:
             Tuple of (compilation_success, error_messages)
@@ -73,10 +79,15 @@ class RustCompiler:
             with tempfile.TemporaryDirectory(prefix="irene-rs-") as tmpdir:
                 tmp_path = Path(tmpdir)
                 source_path = tmp_path / "input.rs"
-                source_path.write_text(rust_code)
+                full_source = self._with_workspace_prefix(
+                    rust_code,
+                    workspace_prelude=workspace_prelude,
+                    workspace_path=workspace_path,
+                )
+                source_path.write_text(full_source)
                 output_path = tmp_path / "a.out"
 
-                resolved_crate_type = crate_type or self._detect_crate_type(rust_code)
+                resolved_crate_type = crate_type or self._detect_crate_type(full_source)
                 args = [
                     "rustc",
                     str(source_path),
@@ -113,6 +124,28 @@ class RustCompiler:
     def _detect_crate_type(rust_code: str) -> str:
         has_main = re.search(r"\bfn\s+main\s*\(", rust_code) is not None
         return "bin" if has_main else "lib"
+
+    @staticmethod
+    def _with_workspace_prefix(
+        rust_code: str,
+        *,
+        workspace_prelude: Optional[str],
+        workspace_path: Optional[Path],
+    ) -> str:
+        prefix = ""
+        if workspace_path:
+            try:
+                prefix = Path(workspace_path).read_text(encoding="utf-8").rstrip()
+            except FileNotFoundError:
+                prefix = ""
+        elif workspace_prelude:
+            prefix = workspace_prelude.rstrip()
+
+        if not prefix:
+            return rust_code
+        if rust_code.startswith("\n"):
+            return f"{prefix}{rust_code}"
+        return f"{prefix}\n\n{rust_code}"
 
 def check_rustc_available() -> bool:
     try:

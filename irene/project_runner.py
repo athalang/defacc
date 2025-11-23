@@ -25,13 +25,9 @@ def translate_compile_commands(
         raise FileNotFoundError(f"{path} not found. Generate compile_commands.json first.")
 
     active_pipeline = pipeline or build_pipeline(lm_config)
-    results = active_pipeline.translate_project(path, verbose=verbose)
+    results = active_pipeline.translate_project(path, verbose=verbose, workspace_path=output_rust)
 
-    if output_rust:
-        concatenated = "\n\n".join(entry["result"].rust_code for entry in results)
-        output_rust = Path(output_rust)
-        output_rust.write_text(concatenated)
-        if verbose:
-            print(f"\nWrote concatenated Rust output to {output_rust}")
+    if output_rust and verbose:
+        print(f"\nAccumulated Rust output written to {Path(output_rust)}")
 
     return results

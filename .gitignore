@@ -5,6 +5,7 @@ __pycache__/
 
 logs/
 *.rs
+utf8/
 
 # C extensions
 *.so
