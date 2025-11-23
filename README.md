@@ -2,7 +2,7 @@
 
 **Guarded Universal Architecture for Defensive Interpretation And traNslation**
 
-A framework for safe LLM-based C-to-Rust translation with built-in defensive mechanisms.
+A prototype framework exploring safe LLM-based C-to-Rust translation with built-in defensive mechanisms.
 
 ---
 
@@ -15,13 +15,19 @@ A framework for safe LLM-based C-to-Rust translation with built-in defensive mec
 - Miss critical type conversions causing overflows
 - Generate code that compiles but violates memory safety
 
-**GUARDIAN's Solution:** Three defensive layers that prevent AI models from introducing security vulnerabilities:
+**GUARDIAN's Approach:** A prototype demonstrating three defensive layers that can reduce vulnerability introduction during AI-assisted code translation:
 
 1. **Prevention**: Static analysis detects unsafe C patterns and injects defensive constraints into LLM prompts
 2. **Detection**: Rust compiler validates every translation—violations trigger refinement, not deployment
 3. **Correction**: Automated error recovery with bounded iterations (max 3) fixes issues without degradation
 
-**Results:** 100% compilation success and 92.6% safe translations on 27 test functions (including 20 security vulnerabilities), compared to 70.4% for vanilla LLM—a **+22.2pp improvement**.
+**Results on test suite:** 100% compilation success and 92.6% safe translations on 27 test functions (including 20 security vulnerabilities), compared to 70.4% for vanilla LLM—a **+22.2pp improvement**.
+
+**What's unique:** GUARDIAN combines two key innovations:
+1. **Rule-Augmented Translation**: Adapts IRENE's static analysis approach (Luo et al., 2025), using libclang to detect unsafe patterns and inject defensive hints
+2. **Multi-File Dependency-Aware Translation**: Extends single-function translation to handle multi-file projects by analyzing strongly-connected components (SCCs) in the dependency graph
+
+While tested on individual functions rather than production codebases, GUARDIAN illustrates principles that could contribute to defensive acceleration in AI-assisted code migration.
 
 ---
 
@@ -173,7 +179,7 @@ print(f"Iterations: {result.compilation.iterations}")
 
 ## Defensive Capabilities
 
-GUARDIAN prevents common vulnerability classes through layered defense:
+GUARDIAN explores how layered defense can address common vulnerability classes:
 
 **Memory Safety:**
 - Buffer overflows → Bounded string operations
@@ -186,7 +192,7 @@ GUARDIAN prevents common vulnerability classes through layered defense:
 - Type punning → Safe enum/struct patterns
 - Uninitialized memory → Default initialization
 
-**Results:** Static analysis + compiler verification + refinement = measurably safer AI code generation.
+**On test suite:** Static analysis + compiler verification + refinement = measurably safer AI code generation (92.6% safe vs 70.4% for vanilla LLM).
 
 ---
 
@@ -256,12 +262,12 @@ arr[i as usize]
 
 ## Defensive Philosophy
 
-GUARDIAN demonstrates how to build safety mechanisms into AI developer tools:
+GUARDIAN demonstrates how safety mechanisms can be built into AI developer tools:
 - **Prevention Layer**: Static analysis guides LLM away from unsafe patterns
 - **Detection Layer**: Compiler catches violations before deployment
 - **Correction Layer**: Bounded refinement fixes issues without degradation
 
-**Impact:** By embedding defensive constraints into AI code generation, GUARDIAN accelerates secure legacy code migration—eliminating vulnerabilities before AI-powered attackers can exploit them.
+**Potential Impact:** By embedding defensive constraints into AI code generation, tools like GUARDIAN could potentially accelerate secure legacy code migration—helping eliminate vulnerabilities before AI-powered attackers can exploit them. Scaling these principles to production codebases remains future work.
 
 ---
 
