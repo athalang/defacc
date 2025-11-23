@@ -4,7 +4,7 @@ GUARDIAN C-to-Rust Translation Evaluation
 Simple eval task to measure translation quality.
 """
 
-from inspect_ai import Task, task, eval
+from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
@@ -126,6 +126,28 @@ def safety_scorer():
     return score
 
 
+def _get_test_category(test_name: str) -> str:
+    """Helper to determine test category."""
+    if test_name in BASIC_TEST_CASES:
+        return "basic"
+    elif test_name in ADVERSARIAL_TEST_CASES:
+        return "adversarial"
+    return "unknown"
+
+
+def _create_samples(test_cases: dict) -> list[Sample]:
+    """Helper to create Sample objects from test cases with category metadata."""
+    samples = []
+    for test_name in test_cases.keys():
+        samples.append(Sample(
+            input=test_name,
+            target="compiled",
+            id=test_name,
+            metadata={"category": _get_test_category(test_name)}
+        ))
+    return samples
+
+
 def single_test(test_name: str = "scanf_two_ints"):
     """
     Dynamic eval task for any individual test case.
@@ -140,25 +162,8 @@ def single_test(test_name: str = "scanf_two_ints"):
     if test_name not in ALL_TEST_CASES:
         raise ValueError(f"Unknown test case: {test_name}. Available: {list(ALL_TEST_CASES.keys())}")
 
-    # Determine category
-    if test_name in BASIC_TEST_CASES:
-        category = "basic"
-    elif test_name in ADVERSARIAL_TEST_CASES:
-        category = "adversarial"
-    else:
-        category = "unknown"
-
     return Task(
-        dataset=[
-            Sample(
-                input=test_name,
-                target="compiled",
-                id=test_name,
-                metadata={
-                    "category": category,
-                }
-            )
-        ],
+        dataset=_create_samples({test_name: ALL_TEST_CASES[test_name]}),
         solver=translate_c_to_rust(),
         scorer=compilation_success()
     )
@@ -181,27 +186,8 @@ def all_tests():
     Usage:
         inspect eval guardian/evals/c_to_rust.py@all_tests
     """
-    samples = []
-    for test_name in ALL_TEST_CASES.keys():
-        # Determine category
-        if test_name in BASIC_TEST_CASES:
-            category = "basic"
-        elif test_name in ADVERSARIAL_TEST_CASES:
-            category = "adversarial"
-        else:
-            category = "unknown"
-
-        samples.append(Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-            metadata={
-                "category": category,
-            }
-        ))
-
     return Task(
-        dataset=samples,
+        dataset=_create_samples(ALL_TEST_CASES),
         solver=translate_c_to_rust(),
         scorer=safety_scorer()
     )
@@ -215,20 +201,8 @@ def basic_tests():
     Usage:
         inspect eval guardian/evals/c_to_rust.py@basic_tests
     """
-    samples = [
-        Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-            metadata={
-                "category": "basic",
-            }
-        )
-        for test_name in BASIC_TEST_CASES.keys()
-    ]
-
     return Task(
-        dataset=samples,
+        dataset=_create_samples(BASIC_TEST_CASES),
         solver=translate_c_to_rust(),
         scorer=safety_scorer()
     )
@@ -252,20 +226,8 @@ def adversarial_tests():
     Usage:
         inspect eval guardian/evals/c_to_rust.py@adversarial_tests
     """
-    samples = [
-        Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-            metadata={
-                "category": "adversarial",
-            }
-        )
-        for test_name in ADVERSARIAL_TEST_CASES.keys()
-    ]
-
     return Task(
-        dataset=samples,
+        dataset=_create_samples(ADVERSARIAL_TEST_CASES),
         solver=translate_c_to_rust(),
         scorer=safety_scorer()
     )
@@ -282,27 +244,8 @@ def all_tests_compilation():
     Usage:
         inspect eval guardian/evals/c_to_rust.py@all_tests_compilation
     """
-    samples = []
-    for test_name in ALL_TEST_CASES.keys():
-        # Determine category
-        if test_name in BASIC_TEST_CASES:
-            category = "basic"
-        elif test_name in ADVERSARIAL_TEST_CASES:
-            category = "adversarial"
-        else:
-            category = "unknown"
-
-        samples.append(Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-            metadata={
-                "category": category,
-            }
-        ))
-
     return Task(
-        dataset=samples,
+        dataset=_create_samples(ALL_TEST_CASES),
         solver=translate_c_to_rust(),
         scorer=compilation_success()
     )
@@ -318,20 +261,8 @@ def adversarial_tests_compilation():
     Usage:
         inspect eval guardian/evals/c_to_rust.py@adversarial_tests_compilation
     """
-    samples = [
-        Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-            metadata={
-                "category": "adversarial",
-            }
-        )
-        for test_name in ADVERSARIAL_TEST_CASES.keys()
-    ]
-
     return Task(
-        dataset=samples,
+        dataset=_create_samples(ADVERSARIAL_TEST_CASES),
         solver=translate_c_to_rust(),
         scorer=compilation_success()
     )
