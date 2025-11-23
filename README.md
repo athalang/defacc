@@ -172,22 +172,19 @@ IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safet
 **Run evaluations:**
 
 ```bash
-# Run basic test cases (7 original examples)
+# Run all test cases with safety scoring (default - recommended)
+inspect eval irene/evals/c_to_rust.py@all_tests
 inspect eval irene/evals/c_to_rust.py@basic_tests
-
-# Run adversarial test cases (20 security vulnerabilities)
 inspect eval irene/evals/c_to_rust.py@adversarial_tests
 
-# Run all test cases (27 total: basic + adversarial)
-inspect eval irene/evals/c_to_rust.py@all_tests
+# Run with compilation-only scoring (no safety checks - lenient)
+inspect eval irene/evals/c_to_rust.py@all_tests_compilation
+inspect eval irene/evals/c_to_rust.py@adversarial_tests_compilation
 
 # Run any single test case dynamically
 inspect eval irene/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
 inspect eval irene/evals/c_to_rust.py@single_test -T test_name=signed_overflow_loop
 inspect eval irene/evals/c_to_rust.py@single_test -T test_name=dangling_stack_pointer
-
-# Or use the convenience task
-inspect eval irene/evals/c_to_rust.py@scanf_two_ints
 
 # View results in web UI
 inspect view
