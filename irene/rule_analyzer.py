@@ -1,6 +1,8 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, List, Optional, Set
-from clang.cindex import Cursor, CursorKind, TokenKind, TranslationUnit, TypeKind, Index
+from typing import Any, Dict, List, Optional, Set
+from clang.cindex import Cursor, CursorKind, TypeKind
+
+from irene.clang_utils import LibclangContext
 
 @dataclass
 class RuleHint:
@@ -10,18 +12,30 @@ class RuleHint:
     explanation: str  # Why this pattern needs special handling
 
 class StaticRuleAnalyzer:
-    def __init__(self, clang_args: Optional[List[str]] = None):
+    def __init__(
+        self,
+        clang_args: Optional[List[str]] = None,
+        source_filename: str = "input.c",
+    ):
         """
         Rule analyzer with optional libclang AST generation support.
 
         Args:
             clang_args: Extra arguments passed to libclang when parsing code.
+            source_filename: Filename used by libclang (use the real path for on-disk files).
         """
-        self.clang_args = clang_args or ["-xc", "-std=c11"]
+        self.clang = LibclangContext(
+            clang_args=clang_args or ["-xc", "-std=c11"],
+            source_filename=source_filename,
+        )
 
     def analyze(self, c_code: str) -> List[RuleHint]:
         """Analyze C code and return applicable rule hints using libclang."""
-        translation_unit = self._parse_translation_unit(c_code)
+        translation_unit = self.clang.parse_translation_unit(c_code)
+        return self.analyze_translation_unit(translation_unit)
+
+    def analyze_translation_unit(self, translation_unit) -> List[RuleHint]:
+        """Analyze an existing translation unit without reparsing."""
         root_cursor = translation_unit.cursor
 
         hints = []
@@ -51,13 +65,7 @@ class StaticRuleAnalyzer:
         """
 
         try:
-            index = Index.create()
-            translation_unit = index.parse(
-                "input.c",
-                args=self.clang_args,
-                unsaved_files=[("input.c", c_code)],
-                options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
-            )
+            translation_unit = self.clang.parse_translation_unit(c_code)
         except Exception as exc:  # pragma: no cover - defensive
             raise RuntimeError(f"Failed to parse C code with libclang: {exc}") from exc
 
@@ -66,7 +74,7 @@ class StaticRuleAnalyzer:
                 return None
 
             # Only include nodes belonging to our in-memory file
-            if cursor.location and cursor.location.file and cursor.location.file.name != "input.c":
+            if cursor.location and cursor.location.file and not self.clang.is_in_source_file(cursor):
                 return None
 
             children = []
@@ -95,48 +103,6 @@ class StaticRuleAnalyzer:
             return node
 
         return cursor_to_dict(translation_unit.cursor) or {}
-
-    def _parse_translation_unit(self, c_code: str) -> TranslationUnit:
-        """Parse C code into a libclang TranslationUnit."""
-        try:
-            index = Index.create()
-            return index.parse(
-                "input.c",
-                args=self.clang_args,
-                unsaved_files=[("input.c", c_code)],
-                options=TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            raise RuntimeError(f"Failed to parse C code with libclang: {exc}") from exc
-
-    def _walk_relevant_nodes(self, cursor: Cursor) -> Generator[Cursor, None, None]:
-        """Yield AST nodes that belong to the in-memory file."""
-        stack = [cursor]
-        while stack:
-            node = stack.pop()
-            if (
-                node.location
-                and node.location.file
-                and node.location.file.name != "input.c"
-            ):
-                continue
-            yield node
-            stack.extend(reversed(list(node.get_children())))
-
-    def _get_called_function_name(self, cursor: Cursor) -> str:
-        """Best-effort extraction of a function name from a call expression."""
-        if cursor.spelling:
-            return cursor.spelling
-
-        for child in cursor.get_children():
-            if child.kind == CursorKind.DECL_REF_EXPR and child.spelling:
-                return child.spelling
-
-        for token in cursor.get_tokens():
-            if token.kind == TokenKind.IDENTIFIER:
-                return token.spelling
-
-        return ""
 
     def _is_numeric_type(self, type_kind: TypeKind) -> bool:
         """Return True when type_kind represents a numeric scalar."""
@@ -193,11 +159,11 @@ class StaticRuleAnalyzer:
         hints: List[RuleHint] = []
         detected: Set[str] = set()
 
-        for node in self._walk_relevant_nodes(root):
+        for node in self.clang.walk_relevant_nodes(root):
             if node.kind != CursorKind.CALL_EXPR:
                 continue
 
-            func_name = self._get_called_function_name(node)
+            func_name = self.clang.get_called_function_name(node)
             if func_name == "scanf" and "scanf" not in detected:
                 hints.append(
                     RuleHint(
@@ -227,9 +193,9 @@ class StaticRuleAnalyzer:
         hints: List[RuleHint] = []
         detected: Set[str] = set()
 
-        for node in self._walk_relevant_nodes(root):
+        for node in self.clang.walk_relevant_nodes(root):
             if node.kind == CursorKind.CALL_EXPR:
-                if self._get_called_function_name(node) == "malloc" and "malloc" not in detected:
+                if self.clang.get_called_function_name(node) == "malloc" and "malloc" not in detected:
                     hints.append(
                         RuleHint(
                             category="Pointers",
@@ -256,7 +222,7 @@ class StaticRuleAnalyzer:
     def _check_array_patterns(self, root: Cursor) -> List[RuleHint]:
         """Check for array indexing patterns using ArraySubscriptExpr nodes."""
         hints: List[RuleHint] = []
-        for node in self._walk_relevant_nodes(root):
+        for node in self.clang.walk_relevant_nodes(root):
             if node.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
                 hints.append(
                     RuleHint(
@@ -274,7 +240,7 @@ class StaticRuleAnalyzer:
         hints: List[RuleHint] = []
         detected: Set[str] = set()
 
-        for node in self._walk_relevant_nodes(root):
+        for node in self.clang.walk_relevant_nodes(root):
             if node.kind == CursorKind.CSTYLE_CAST_EXPR:
                 target_kind = node.type.kind if node.type else None
                 if target_kind in {TypeKind.LONGLONG, TypeKind.LONG, TypeKind.INT} and "casts" not in detected:
