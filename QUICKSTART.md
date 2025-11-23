@@ -120,19 +120,50 @@ Run a specific test:
 python main.py --test array_indexing
 ```
 
+## Translate a C Project with compile_commands.json
+
+1. Generate a compilation database for your project (examples):
+
+   ```bash
+   # CMake
+   cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -S . -B build
+   cmake --build build
+
+   # or Make/Bear (example project under utf8/)
+   cd utf8
+   bear -- make clean all
+   ```
+
+2. Run GUARDIAN over the resulting `compile_commands.json`:
+
+   ```bash
+   python main.py --compile-commands utf8/compile_commands.json --output-rust utf8_translated.rs
+   ```
+
+   `main.py` walks strongly-connected components from the database, translates each chunk, and (optionally) writes the combined Rust output to the file provided via `--output-rust`.
+
 ## Run Evaluations (Optional)
 
 GUARDIAN includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/) to measure translation quality:
 
 ```bash
 # Run all test cases through eval framework
-inspect eval src/defacc/evals/c_to_rust.py@all_tests
+inspect eval guardian/evals/c_to_rust.py@all_tests
+inspect eval guardian/evals/c_to_rust.py@basic_tests
+inspect eval guardian/evals/c_to_rust.py@adversarial_tests
+
+# Run compilation-only scoring (lenient)
+inspect eval guardian/evals/c_to_rust.py@all_tests_compilation
+inspect eval guardian/evals/c_to_rust.py@adversarial_tests_compilation
+
+# Target a single test
+inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
 
 # View results in web UI
 inspect view
 ```
 
-This measures compilation success rate and tracks refinement iterations. See README.md for full details.
+These commands run the same pipeline but feed it a curated suite of file-based C programs. Use them to validate LLM or prompt tweaks before translating real projects via `compile_commands.json`.
 
 ## Use in Your Code
 

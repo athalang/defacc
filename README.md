@@ -129,6 +129,28 @@ python main.py --test scanf_two_ints
 python main.py --all
 ```
 
+### Translate a C Project (compile_commands.json)
+
+You can run the GUARDIAN pipeline on any C project that exposes a `compile_commands.json` database.
+
+1. **Generate `compile_commands.json`:**
+   - **CMake:** Configure with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` and build once.
+   - **Make/Bear:** Wrap your build with [Bear](https://github.com/rizsotto/Bear):
+
+     ```bash
+     cd utf8
+     bear -- make clean all
+     # compile_commands.json is now in utf8/
+     ```
+
+2. **Run the pipeline via `main.py`:**
+
+   ```bash
+   python main.py --compile-commands utf8/compile_commands.json --output-rust utf8_translated.rs
+   ```
+
+   The script walks SCCs from the compilation database, translates each chunk, and (optionally) concatenates the Rust output at `--output-rust` for quick inspection.
+
 ### Available Test Cases
 
 **Basic Test Cases** (7 examples from paper):
@@ -196,6 +218,8 @@ inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=dangling_stack
 # View results in web UI
 inspect view
 ```
+
+These evals invoke the same pipeline you run via `main.py`, but feed it predefined C snippets rather than a compilation database. Use them to validate model and prompt changes before translating large projects.
 
 **Metrics reported:**
 - **Accuracy**: Percentage of translations that compiled successfully
@@ -562,4 +586,3 @@ MIT
 ## Contact
 
 For questions about this implementation, please open an issue.
-
