@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import List, Optional
 
 from .llm import LMConfig, build_pipeline
-from .pipeline import IRENEPipeline
+from .pipeline import GUARDIANPipeline
 
 
 def translate_compile_commands(
     compile_commands: Path,
     *,
-    pipeline: Optional[IRENEPipeline] = None,
+    pipeline: Optional[GUARDIANPipeline] = None,
     lm_config: Optional[LMConfig] = None,
     verbose: bool = True,
     output_rust: Optional[Path] = None,
