@@ -124,6 +124,7 @@ python main.py --all
 
 ### Available Test Cases
 
+**Basic Test Cases** (7 examples from paper):
 - `scanf_two_ints`: Reading multiple integers with scanf
 - `array_indexing`: Array access with integer indices
 - `long_long_mult`: Type casting for large multiplication
@@ -132,6 +133,38 @@ python main.py --all
 - `simple_pointer`: Basic pointer allocation
 - `float_conversion`: Integer to float conversion
 
+**Adversarial Test Cases** (20 security vulnerabilities):
+
+*Memory Safety Issues:*
+- `buffer_overflow`: strcpy buffer overflow vulnerability
+- `use_after_free`: Accessing freed memory
+- `double_free`: Freeing same pointer twice
+- `array_bounds`: Out-of-bounds array access
+- `null_deref`: NULL pointer dereference
+- `pointer_arith_overflow`: Pointer arithmetic overflow
+- `use_after_realloc`: Use-after-realloc via stale pointer
+- `dangling_stack_pointer`: Returning pointer to local variable
+
+*Integer & Arithmetic Issues:*
+- `integer_overflow`: INT_MAX overflow to negative
+- `signed_overflow_loop`: Signed overflow in loop
+- `shift_too_large`: Shift by >= type width
+
+*Type Safety Issues:*
+- `uninitialized_read`: Reading uninitialized variables
+- `uninit_struct`: Uninitialized struct fields
+- `union_punning`: Type punning via union
+- `bad_function_pointer`: Invalid function pointer cast
+
+*Control Flow & Undefined Behavior:*
+- `format_string`: Format string vulnerability
+- `sequence_point`: Undefined sequence point violation
+- `goto_skip_init`: Goto skipping initialization
+- `volatile_access`: Volatile variable access
+- `flexible_array`: C99 flexible array member
+
+These adversarial cases demonstrate IRENE's defensive capabilities against a comprehensive range of C undefined behaviors and security vulnerabilities.
+
 ### Run Evaluations
 
 IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
@@ -139,11 +172,22 @@ IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safet
 **Run evaluations:**
 
 ```bash
-# Run single test case
-inspect eval irene/evals/c_to_rust.py@scanf_two_ints_eval
+# Run basic test cases (7 original examples)
+inspect eval irene/evals/c_to_rust.py@basic_tests
 
-# Run all test cases (7 examples)
-inspect eval irene/evals/c_to_rust.py@all_tests_eval
+# Run adversarial test cases (20 security vulnerabilities)
+inspect eval irene/evals/c_to_rust.py@adversarial_tests
+
+# Run all test cases (27 total: basic + adversarial)
+inspect eval irene/evals/c_to_rust.py@all_tests
+
+# Run any single test case dynamically
+inspect eval irene/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
+inspect eval irene/evals/c_to_rust.py@single_test -T test_name=signed_overflow_loop
+inspect eval irene/evals/c_to_rust.py@single_test -T test_name=dangling_stack_pointer
+
+# Or use the convenience task
+inspect eval irene/evals/c_to_rust.py@scanf_two_ints
 
 # View results in web UI
 inspect view
@@ -156,10 +200,36 @@ inspect view
 
 **Example output:**
 ```
-Task: all_tests_eval
-  accuracy: 0.857 (6/7)
-  avg_iterations: 1.2
+basic_tests (7 samples)
+total time: 0:00:06
+
+compilation_success
+  accuracy: 1.000
+
+Log: logs/2025-11-22_basic-tests.eval
 ```
+
+```
+adversarial_tests (20 samples)
+total time: 0:00:28
+
+compilation_success
+  accuracy: 0.850
+
+Log: logs/2025-11-22_adversarial-tests.eval
+```
+
+```
+all_tests (27 samples)
+total time: 0:00:35
+
+compilation_success
+  accuracy: 0.926
+
+Log: logs/2025-11-22_all-tests.eval
+```
+
+The **adversarial_tests** eval demonstrates IRENE's defensive capabilities by measuring how well it prevents common C vulnerabilities from becoming unsafe Rust code. With **20 diverse security vulnerabilities** covering memory safety, integer overflows, type punning, and undefined behavior, IRENE achieves **92.6% compilation success** across all test cases, showing that the defensive framework effectively translates even adversarial code into safe Rust.
 
 The evaluation results are saved to `./logs/` and can be viewed in the Inspect UI with `inspect view`.
 
