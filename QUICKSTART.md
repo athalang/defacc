@@ -1,6 +1,6 @@
-# IRENE Quick Start Guide
+# GUARDIAN Quick Start Guide
 
-Get started with IRENE in 5 minutes!
+Get started with GUARDIAN in 5 minutes!
 
 ## Prerequisites
 
@@ -79,7 +79,7 @@ python main.py
 You should see:
 
 ```
-IRENE C-to-Rust Translation Pipeline
+GUARDIAN C-to-Rust Translation Pipeline
 ====================================
 
 Step 1: Analyzing C code patterns...
@@ -122,11 +122,11 @@ python main.py --test array_indexing
 
 ## Run Evaluations (Optional)
 
-IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/) to measure translation quality:
+GUARDIAN includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/) to measure translation quality:
 
 ```bash
 # Run all test cases through eval framework
-inspect eval src/defacc/evals/c_to_rust.py@all_tests_eval
+inspect eval src/defacc/evals/c_to_rust.py@all_tests
 
 # View results in web UI
 inspect view
@@ -138,7 +138,7 @@ This measures compilation success rate and tracks refinement iterations. See REA
 
 ```python
 import dspy
-from defacc.pipeline import IRENEPipeline
+from guardian.pipeline import GUARDIANPipeline
 
 # 1. Configure LLM
 lm = dspy.LM(
@@ -148,7 +148,7 @@ lm = dspy.LM(
 dspy.configure(lm=lm)
 
 # 2. Create pipeline
-pipeline = IRENEPipeline(lm=lm)
+pipeline = GUARDIANPipeline(lm=lm)
 
 # 3. Translate
 c_code = """
@@ -205,7 +205,7 @@ python main.py
 
 1. **Add your own examples**: Edit `src/defacc/corpus/examples.json`
 2. **Test on real code**: Try translating your own C snippets
-3. **Tune parameters**: Adjust `max_refinement_iterations` in IRENEPipeline
+3. **Tune parameters**: Adjust `max_refinement_iterations` in GUARDIANPipeline
 4. **Try different LLMs**: Experiment with GPT-4, Claude, or local models
 
 ## Performance Tips

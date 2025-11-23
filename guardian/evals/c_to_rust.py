@@ -1,5 +1,5 @@
 """
-IRENE C-to-Rust Translation Evaluation
+GUARDIAN C-to-Rust Translation Evaluation
 
 Simple eval task to measure translation quality.
 """
@@ -10,7 +10,7 @@ from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
 from guardian.llm import build_lm
-from guardian.pipeline import IRENEPipeline
+from guardian.pipeline import GUARDIANPipeline
 from guardian.project_runner import translate_compile_commands
 from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
@@ -18,7 +18,7 @@ from guardian.tests.test_paper_examples import ALL_TEST_CASES
 @solver
 def translate_c_to_rust():
     """
-    Solver that uses IRENE pipeline to translate C to Rust.
+    Solver that uses GUARDIAN pipeline to translate C to Rust.
     """
     async def solve(state: TaskState, generate: Generate):
         # Get the C code from input
@@ -38,7 +38,7 @@ def translate_c_to_rust():
         import dspy
 
         with dspy.context(lm=lm):
-            pipeline = IRENEPipeline(lm=lm)
+            pipeline = GUARDIANPipeline(lm=lm)
 
             if compile_commands:
                 project_results = translate_compile_commands(

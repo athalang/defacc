@@ -10,7 +10,7 @@ import networkx as nx
 from .rule_analyzer import RuleHint, StaticRuleAnalyzer, format_hints
 from .retriever import ExampleRetriever, TranslationExample, format_examples
 from .compiler import RustCompiler, check_rustc_available
-from .dspy_modules import IRENEModules
+from .dspy_modules import GUARDIANModules
 from .dependency_graph import DeclarationRecord, SCCComponent
 from .project_scanner import build_project_graph
 
@@ -36,7 +36,7 @@ class TranslationResult:
     artifacts: TranslationArtifacts
 
 
-class IRENEPipeline:
+class GUARDIANPipeline:
     def __init__(
         self,
         lm: dspy.LM,
@@ -54,7 +54,7 @@ class IRENEPipeline:
         self.lm = lm
 
         # Initialize DSPy modules
-        self.modules = IRENEModules()
+        self.modules = GUARDIANModules()
 
         # Check if rustc is available
         if not check_rustc_available():
@@ -71,7 +71,7 @@ class IRENEPipeline:
         dependency_context: Optional[str] = None,
     ) -> TranslationResult:
         """
-        Translate C code to Rust using the IRENE framework.
+        Translate C code to Rust using the GUARDIAN framework.
 
         Args:
             c_code: The C source code to translate
@@ -89,11 +89,6 @@ class IRENEPipeline:
                 - errors: Final error messages (if any)
                 - summary: Either the summarizer output or the provided summary text
         """
-        if verbose:
-            print("\n" + "=" * 60)
-            print("IRENE C-to-Rust Translation Pipeline")
-            print("=" * 60 + "\n")
-
         computed_hints, categories = self._analyze_rules(c_code, rule_hints, verbose)
         examples = self._retrieve_examples(c_code, categories, verbose)
         root_context = declaration_context or self._build_context(kind="translation_unit", name="input")

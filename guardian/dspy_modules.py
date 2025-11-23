@@ -45,8 +45,8 @@ class RefineRust(dspy.Signature):
     errors: str = dspy.InputField(desc="Compiler error messages from rustc")
     fixed_code: str = dspy.OutputField(desc="Pure Rust source code using ONLY std library, no markdown, no explanations")
 
-class IRENEModules:
-    """Container for all DSPy modules used in IRENE pipeline."""
+class GUARDIANModules:
+    """Container for all DSPy modules used in GUARDIAN pipeline."""
 
     def __init__(self):
         self.summarizer = dspy.ChainOfThought(CodeSummary)
