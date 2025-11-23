@@ -214,6 +214,176 @@ int main() {
 }
 """
 
+# Test case 16: Signed integer overflow in loop
+TEST_SIGNED_OVERFLOW_LOOP = """
+#include <stdio.h>
+
+int main() {
+    int x = 2147483600;
+    for (int i = 0; i < 20; i++) {
+        x += 1000;
+    }
+    printf("%d\n", x);
+    return 0;
+}
+"""
+
+# Test case 17: Shift by >= width
+TEST_SHIFT_TOO_LARGE = """
+#include <stdio.h>
+
+int main() {
+    int x = 1;
+    int y = x << 40;
+    printf("%d\n", y);
+    return 0;
+}
+"""
+
+# Test case 18: Pointer arithmetic overflow
+TEST_POINTER_ARITH_OVERFLOW = """
+#include <stdio.h>
+
+int main() {
+    int arr[5] = {1,2,3,4,5};
+    int *p = arr + 10;
+    printf("%d\n", *p);
+    return 0;
+}
+"""
+
+# Test case 19: Use-after-realloc via old pointer
+TEST_USE_AFTER_REALLOC = """
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int *p = malloc(5 * sizeof(int));
+    p[0] = 42;
+    p = realloc(p, 10 * sizeof(int));
+    int *old = p - 1;
+    printf("%d\n", *old);
+    free(p);
+    return 0;
+}
+"""
+
+# Test case 20: Function pointer misuse
+TEST_BAD_FUNCTION_POINTER = """
+#include <stdio.h>
+
+int add(int a, int b) { return a + b; }
+
+int main() {
+    int (*fp)(int, int) = (int (*)(int,int))0x1234;
+    printf("%d\n", fp(1, 2));
+    return 0;
+}
+"""
+
+# Test case 21: Union type punning
+TEST_UNION_PUNNING = """
+#include <stdio.h>
+
+union U {
+    int i;
+    float f;
+};
+
+int main() {
+    union U u;
+    u.f = 3.14f;
+    printf("%d\n", u.i);
+    return 0;
+}
+"""
+
+# Test case 22: Volatile access
+TEST_VOLATILE_ACCESS = """
+#include <stdio.h>
+
+int main() {
+    volatile int x = 10;
+    x++;
+    printf("%d\n", x);
+    return 0;
+}
+"""
+
+# Test case 23: Returning pointer to local variable
+TEST_DANGLING_STACK_POINTER = """
+#include <stdio.h>
+
+int* make() {
+    int x = 5;
+    return &x;
+}
+
+int main() {
+    int *p = make();
+    printf("%d\n", *p);
+    return 0;
+}
+"""
+
+# Test case 24: Flexible array member struct allocation
+TEST_FLEXIBLE_ARRAY = """
+#include <stdio.h>
+#include <stdlib.h>
+
+struct S {
+    int len;
+    int data[];
+};
+
+int main() {
+    struct S *s = malloc(sizeof(struct S) + 5 * sizeof(int));
+    s->len = 5;
+    for (int i = 0; i < s->len; i++) s->data[i] = i;
+    printf("%d\n", s->data[3]);
+    free(s);
+    return 0;
+}
+"""
+
+# Test case 25: Sequence point violation
+TEST_SEQUENCE_POINT = """
+#include <stdio.h>
+
+int main() {
+    int x = 1;
+    int y = x++ + x++;
+    printf("%d\n", y);
+    return 0;
+}
+"""
+
+# Test case 26: Goto skipping initialization
+TEST_GOTO_SKIP_INIT = """
+#include <stdio.h>
+
+int main() {
+    goto skip;
+    int x = 10;
+skip:
+    printf("%d\n", x);
+    return 0;
+}
+"""
+
+# Test case 27: Uninitialized struct fields
+TEST_UNINIT_STRUCT = """
+#include <stdio.h>
+
+struct P { int x, y; };
+
+int main() {
+    struct P p;
+    printf("%d %d\n", p.x, p.y);
+    return 0;
+}
+"""
+
 # All test cases (basic + adversarial)
 ALL_TEST_CASES = {
     # Basic test cases
@@ -234,6 +404,18 @@ ALL_TEST_CASES = {
     "uninitialized_read": TEST_UNINITIALIZED_READ,
     "format_string": TEST_FORMAT_STRING,
     "null_deref": TEST_NULL_DEREF,
+    "signed_overflow_loop": TEST_SIGNED_OVERFLOW_LOOP,
+    "shift_too_large": TEST_SHIFT_TOO_LARGE,
+    "pointer_arith_overflow": TEST_POINTER_ARITH_OVERFLOW,
+    "use_after_realloc": TEST_USE_AFTER_REALLOC,
+    "bad_function_pointer": TEST_BAD_FUNCTION_POINTER,
+    "union_punning": TEST_UNION_PUNNING,
+    "volatile_access": TEST_VOLATILE_ACCESS,
+    "dangling_stack_pointer": TEST_DANGLING_STACK_POINTER,
+    "flexible_array": TEST_FLEXIBLE_ARRAY,
+    "sequence_point": TEST_SEQUENCE_POINT,
+    "goto_skip_init": TEST_GOTO_SKIP_INIT,
+    "uninit_struct": TEST_UNINIT_STRUCT,
 }
 
 # Categorize test cases for targeted evaluation
@@ -256,4 +438,16 @@ ADVERSARIAL_TEST_CASES = {
     "uninitialized_read": TEST_UNINITIALIZED_READ,
     "format_string": TEST_FORMAT_STRING,
     "null_deref": TEST_NULL_DEREF,
+    "signed_overflow_loop": TEST_SIGNED_OVERFLOW_LOOP,
+    "shift_too_large": TEST_SHIFT_TOO_LARGE,
+    "pointer_arith_overflow": TEST_POINTER_ARITH_OVERFLOW,
+    "use_after_realloc": TEST_USE_AFTER_REALLOC,
+    "bad_function_pointer": TEST_BAD_FUNCTION_POINTER,
+    "union_punning": TEST_UNION_PUNNING,
+    "volatile_access": TEST_VOLATILE_ACCESS,
+    "dangling_stack_pointer": TEST_DANGLING_STACK_POINTER,
+    "flexible_array": TEST_FLEXIBLE_ARRAY,
+    "sequence_point": TEST_SEQUENCE_POINT,
+    "goto_skip_init": TEST_GOTO_SKIP_INIT,
+    "uninit_struct": TEST_UNINIT_STRUCT,
 }

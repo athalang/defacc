@@ -76,26 +76,43 @@ def compilation_success():
     return score
 
 
-@task
-def scanf_two_ints():
+def single_test(test_name: str = "scanf_two_ints"):
     """
-    Simple eval task for the scanf_two_ints test case.
+    Dynamic eval task for any individual test case.
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@scanf_two_ints
+        inspect eval irene/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
+        inspect eval irene/evals/c_to_rust.py@single_test -T test_name=use_after_free
+
+    Or use the default:
+        inspect eval irene/evals/c_to_rust.py@single_test
     """
+    if test_name not in ALL_TEST_CASES:
+        raise ValueError(f"Unknown test case: {test_name}. Available: {list(ALL_TEST_CASES.keys())}")
+
+    # Determine category
+    if test_name in BASIC_TEST_CASES:
+        category = "basic"
+    elif test_name in ADVERSARIAL_TEST_CASES:
+        category = "adversarial"
+    else:
+        category = "unknown"
+
     return Task(
         dataset=[
             Sample(
-                input="scanf_two_ints",
+                input=test_name,
                 target="compiled",
-                id="scanf_two_ints",
-                metadata={"category": "I/O"}
+                id=test_name,
+                metadata={"category": category}
             )
         ],
         solver=translate_c_to_rust(),
         scorer=compilation_success()
     )
+
+# Make it a task
+single_test = task(single_test)
 
 
 @task
