@@ -12,7 +12,7 @@ class TranslationExample:
     description: str
 
 class ExampleRetriever:
-    def __init__(self, corpus_path: str = "irene/corpus/examples.json"):
+    def __init__(self, corpus_path: str = "guardian/corpus/examples.json"):
         self.corpus_path = Path(corpus_path)
         self.examples: List[TranslationExample] = []
         self.examples_by_category: Dict[str, List[TranslationExample]] = {}

@@ -2,7 +2,7 @@
 Scan a C project using libclang and the dependency_graph helpers.
 
 Usage:
-    python -m irene.project_scanner --compile-commands build/compile_commands.json
+    python -m guardian.project_scanner --compile-commands build/compile_commands.json
 
 The compile_commands.json file can be produced from a Make/Ninja build with
 tools like bear, intercept-build, or compiledb:
