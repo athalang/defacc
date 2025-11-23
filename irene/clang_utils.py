@@ -17,11 +17,11 @@ class LibclangContext:
     def __init__(self, clang_args: Optional[List[str]] = None, source_filename: str = "input.c"):
         self.clang_args = clang_args or ["-xc", "-std=c11"]
         self.source_filename = source_filename
+        self.index = Index.create()
 
     def parse_translation_unit(self, c_code: str) -> TranslationUnit:
         try:
-            index = Index.create()
-            return index.parse(
+            return self.index.parse(
                 self.source_filename,
                 args=self.clang_args,
                 unsaved_files=[(self.source_filename, c_code)],
@@ -90,6 +90,36 @@ def cursor_in_files(cursor: Cursor, target_files: Set[str]) -> bool:
     )
 
 
+def extract_source(cursor: Cursor, c_code: str, target_files: Set[str]) -> str:
+    """Return the source text for a cursor extent within allowed files."""
+    if not cursor or not cursor.extent:
+        return ""
+
+    start = cursor.extent.start
+    end = cursor.extent.end
+
+    if not (
+        start.file
+        and end.file
+        and normalize_path(start.file.name) in target_files
+        and normalize_path(end.file.name) in target_files
+    ):
+        return ""
+
+    lines = c_code.splitlines()
+    if start.line < 1 or end.line > len(lines):
+        return ""
+
+    slice_lines = lines[start.line - 1 : end.line]
+    if not slice_lines:
+        return ""
+
+    slice_lines[0] = slice_lines[0][start.column - 1 :]
+    slice_lines[-1] = slice_lines[-1][: end.column - 1]
+
+    return "\n".join(slice_lines).strip("\n")
+
+
 def stable_cursor_id(cursor: Cursor, name: str, path: str) -> str:
     """
     Build a stable identifier for a cursor using USR when available, otherwise fallback to file:line:col.
@@ -101,3 +131,13 @@ def stable_cursor_id(cursor: Cursor, name: str, path: str) -> str:
     line = loc.line if loc else "?"
     col = loc.column if loc else "?"
     return f"{path}::{name}@{line}:{col}"
+
+
+def cursor_kind_slug(kind) -> str:
+    """
+    Return a lowercase descriptive name for a CursorKind that is stable across libclang versions.
+    """
+    name = getattr(kind, "name", None) or getattr(kind, "spelling", None)
+    if not name:
+        name = str(kind)
+    return name.lower().replace("_decl", "")
