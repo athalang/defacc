@@ -1,5 +1,5 @@
 """
-IRENE C-to-Rust Translation Evaluation
+GUARDIAN C-to-Rust Translation Evaluation
 
 Simple eval task to measure translation quality.
 """
@@ -9,14 +9,14 @@ from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
-from irene.pipeline import IRENEPipeline
-from irene.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
+from guardian.pipeline import GUARDIANPipeline
+from guardian.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
 
 
 @solver
 def translate_c_to_rust():
     """
-    Solver that uses IRENE pipeline to translate C to Rust.
+    Solver that uses GUARDIAN pipeline to translate C to Rust.
     """
     async def solve(state: TaskState, generate: Generate):
         # Get the C code from input
@@ -29,7 +29,7 @@ def translate_c_to_rust():
         c_code = ALL_TEST_CASES[test_name]
 
         # Initialize pipeline (using the LLM from state)
-        from irene.settings import settings
+        from guardian.settings import settings
         import dspy
 
         lm = dspy.LM(
@@ -41,7 +41,7 @@ def translate_c_to_rust():
 
         # Use dspy.context() for async-safe configuration
         with dspy.context(lm=lm):
-            pipeline = IRENEPipeline(lm=lm)
+            pipeline = GUARDIANPipeline(lm=lm)
 
             # Translate
             result = pipeline.translate(c_code, verbose=False)
@@ -131,11 +131,11 @@ def single_test(test_name: str = "scanf_two_ints"):
     Dynamic eval task for any individual test case.
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
-        inspect eval irene/evals/c_to_rust.py@single_test -T test_name=use_after_free
+        inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
+        inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=use_after_free
 
     Or use the default:
-        inspect eval irene/evals/c_to_rust.py@single_test
+        inspect eval guardian/evals/c_to_rust.py@single_test
     """
     if test_name not in ALL_TEST_CASES:
         raise ValueError(f"Unknown test case: {test_name}. Available: {list(ALL_TEST_CASES.keys())}")
@@ -179,7 +179,7 @@ def all_tests():
     - Zero unsafe impls
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@all_tests
+        inspect eval guardian/evals/c_to_rust.py@all_tests
     """
     samples = []
     for test_name in ALL_TEST_CASES.keys():
@@ -213,7 +213,7 @@ def basic_tests():
     Eval task for basic test cases only (original 7 examples) with safety scoring.
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@basic_tests
+        inspect eval guardian/evals/c_to_rust.py@basic_tests
     """
     samples = [
         Sample(
@@ -247,10 +247,10 @@ def adversarial_tests():
     - Uninitialized memory
     - Format string vulnerabilities
 
-    IRENE's defensive mechanisms should prevent these from becoming unsafe Rust code.
+    GUARDIAN's defensive mechanisms should prevent these from becoming unsafe Rust code.
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@adversarial_tests
+        inspect eval guardian/evals/c_to_rust.py@adversarial_tests
     """
     samples = [
         Sample(
@@ -280,7 +280,7 @@ def all_tests_compilation():
     - Compilation success (allows unsafe blocks)
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@all_tests_compilation
+        inspect eval guardian/evals/c_to_rust.py@all_tests_compilation
     """
     samples = []
     for test_name in ALL_TEST_CASES.keys():
@@ -316,7 +316,7 @@ def adversarial_tests_compilation():
     This is a more lenient scorer useful for debugging.
 
     Usage:
-        inspect eval irene/evals/c_to_rust.py@adversarial_tests_compilation
+        inspect eval guardian/evals/c_to_rust.py@adversarial_tests_compilation
     """
     samples = [
         Sample(

@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "defacc"
+name = "guardian"
 version = "0.1.0"
-description = "placeholder"
+description = "GUARDIAN: Guarded Universal Architecture for Defensive Interpretation And traNslation - A framework for safe LLM-based C-to-Rust translation with defensive mechanisms"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -17,4 +17,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["irene"]
+packages = ["guardian"]

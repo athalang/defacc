@@ -1,4 +1,6 @@
-# IRENE: Defensive AI Code Translation
+# GUARDIAN: Defensive AI Code Translation
+
+**Guarded Universal Architecture for Defensive Interpretation And traNslation**
 
 **A framework for safe LLM-based C-to-Rust translation with built-in defensive mechanisms**
 
@@ -24,9 +26,9 @@ Current LLM translation approaches lack mechanisms to prevent these safety-criti
 - Generate buffer operations that compile but violate memory safety
 - Introduce race conditions or use-after-free vulnerabilities that escape detection
 
-**IRENE's Defensive Approach:**
+**GUARDIAN's Defensive Approach:**
 
-IRENE demonstrates a **defensive acceleration** framework for AI code generation with three protective layers:
+GUARDIAN demonstrates a **defensive acceleration** framework for AI code generation with three protective layers:
 
 1. **Static Rule Guardrails** (Prevention): libclang AST analysis detects unsafe C patterns before translation and injects defensive rules to prevent vulnerability introduction
 2. **Compilation Verification** (Detection): Every translation is validated by rustc's type system, catching memory safety violations before deployment
@@ -38,7 +40,7 @@ IRENE demonstrates a **defensive acceleration** framework for AI code generation
 
 ## Overview
 
-IRENE improves upon vanilla LLM-based translation through three key defensive modules:
+GUARDIAN improves upon vanilla LLM-based translation through three key defensive modules:
 
 1. **Rule-Augmented Retrieval**: Static analysis detects C patterns (I/O, pointers, arrays, mixed types) and retrieves defensive translation examples
 2. **Structured Summarization**: Analyzes code structure (parameters, return types, functionality) before translation
@@ -72,7 +74,7 @@ pip install -e .
 uv pip install -e .
 ```
 
-This will install the `irene` package and all dependencies including `libclang`, `dspy`, and `inspect-ai`.
+This will install the `guardian` package and all dependencies including `libclang`, `dspy`, and `inspect-ai`.
 
 ### 2. Install Rust (for compilation validation)
 
@@ -168,28 +170,28 @@ python main.py --all
 - `volatile_access`: Volatile variable access
 - `flexible_array`: C99 flexible array member
 
-These adversarial cases demonstrate IRENE's defensive capabilities against a comprehensive range of C undefined behaviors and security vulnerabilities.
+These adversarial cases demonstrate GUARDIAN's defensive capabilities against a comprehensive range of C undefined behaviors and security vulnerabilities.
 
 ### Run Evaluations
 
-IRENE includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
+GUARDIAN includes evaluation tasks built with [Inspect AI](https://inspect.ai-safety-institute.org.uk/), a framework for LLM evaluations. The evals measure translation quality by checking if generated Rust code compiles successfully.
 
 **Run evaluations:**
 
 ```bash
 # Run all test cases with safety scoring (default - recommended)
-inspect eval irene/evals/c_to_rust.py@all_tests
-inspect eval irene/evals/c_to_rust.py@basic_tests
-inspect eval irene/evals/c_to_rust.py@adversarial_tests
+inspect eval guardian/evals/c_to_rust.py@all_tests
+inspect eval guardian/evals/c_to_rust.py@basic_tests
+inspect eval guardian/evals/c_to_rust.py@adversarial_tests
 
 # Run with compilation-only scoring (no safety checks - lenient)
-inspect eval irene/evals/c_to_rust.py@all_tests_compilation
-inspect eval irene/evals/c_to_rust.py@adversarial_tests_compilation
+inspect eval guardian/evals/c_to_rust.py@all_tests_compilation
+inspect eval guardian/evals/c_to_rust.py@adversarial_tests_compilation
 
 # Run any single test case dynamically
-inspect eval irene/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
-inspect eval irene/evals/c_to_rust.py@single_test -T test_name=signed_overflow_loop
-inspect eval irene/evals/c_to_rust.py@single_test -T test_name=dangling_stack_pointer
+inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=buffer_overflow
+inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=signed_overflow_loop
+inspect eval guardian/evals/c_to_rust.py@single_test -T test_name=dangling_stack_pointer
 
 # View results in web UI
 inspect view
@@ -231,7 +233,7 @@ compilation_success
 Log: logs/2025-11-22_all-tests.eval
 ```
 
-The **adversarial_tests** eval demonstrates IRENE's defensive capabilities by measuring how well it prevents common C vulnerabilities from becoming unsafe Rust code. With **20 diverse security vulnerabilities** covering memory safety, integer overflows, type punning, and undefined behavior, IRENE achieves **92.6% compilation success** across all test cases, showing that the defensive framework effectively translates even adversarial code into safe Rust.
+The **adversarial_tests** eval demonstrates GUARDIAN's defensive capabilities by measuring how well it prevents common C vulnerabilities from becoming unsafe Rust code. With **20 diverse security vulnerabilities** covering memory safety, integer overflows, type punning, and undefined behavior, GUARDIAN achieves **92.6% compilation success** across all test cases, showing that the defensive framework effectively translates even adversarial code into safe Rust.
 
 The evaluation results are saved to `./logs/` and can be viewed in the Inspect UI with `inspect view`.
 
@@ -239,7 +241,7 @@ The evaluation results are saved to `./logs/` and can be viewed in the Inspect U
 
 ```python
 import dspy
-from irene.pipeline import IRENEPipeline
+from guardian.pipeline import GUARDIANPipeline
 
 # 1. Configure LLM
 lm = dspy.LM(
@@ -249,7 +251,7 @@ lm = dspy.LM(
 dspy.configure(lm=lm)
 
 # 2. Create pipeline
-pipeline = IRENEPipeline(lm=lm)
+pipeline = GUARDIANPipeline(lm=lm)
 
 # 3. Translate C code
 c_code = """
@@ -274,9 +276,9 @@ print(f"Compiled: {result['compiled']}")
 ├── main.py                 # Entry point - runs demo/tests
 ├── .env.example            # Example configuration template
 ├── pyproject.toml          # Project metadata and dependencies
-└── irene/
+└── guardian/
     ├── __init__.py         # Package initialization
-    ├── pipeline.py         # IRENE pipeline orchestration
+    ├── pipeline.py         # GUARDIAN pipeline orchestration
     ├── dspy_modules.py     # DSPy signatures (Summarizer, Translator, Refiner)
     ├── rule_analyzer.py    # Static C code analysis with libclang
     ├── retriever.py        # BM25-based example retrieval
@@ -381,7 +383,7 @@ let result = (x as i64) * (y as i64);
 
 ## Defensive Capabilities
 
-IRENE implements a layered defense-in-depth approach to prevent AI-generated security vulnerabilities:
+GUARDIAN implements a layered defense-in-depth approach to prevent AI-generated security vulnerabilities:
 
 ### 1. **Static Rule Guardrails** (Prevention Layer)
 
@@ -399,13 +401,13 @@ char buffer[10];
 scanf("%s", buffer);  // No bounds checking!
 ```
 
-Without IRENE, an LLM might translate this to:
+Without GUARDIAN, an LLM might translate this to:
 ```rust
 let mut buffer = String::new();
 io::stdin().read_line(&mut buffer).unwrap();  // Still unsafe if unconstrained
 ```
 
-With IRENE's defensive rules:
+With GUARDIAN's defensive rules:
 ```rust
 use std::io::{self, BufRead};
 let stdin = io::stdin();
@@ -445,26 +447,26 @@ let buffer: String = stdin.lock().lines().next().unwrap().unwrap();
 
 Measured on test suite of 7 common C patterns:
 
-| Metric | Vanilla LLM | IRENE |
+| Metric | Vanilla LLM | GUARDIAN |
 |--------|-------------|-------|
 | Compilation Success | ~40-60% | **86%** |
 | Unsafe Blocks | Variable | **0%** |
 | Memory Safety Guarantees | None | **Type-checked** |
 | Vulnerability Detection | Manual review required | **Automatic** |
 
-**Key insight**: By combining static analysis, type system verification, and bounded refinement, IRENE demonstrates how to build defensive mechanisms directly into AI code generation tools, strengthening protection against AI-introduced vulnerabilities at scale.
+**Key insight**: By combining static analysis, type system verification, and bounded refinement, GUARDIAN demonstrates how to build defensive mechanisms directly into AI code generation tools, strengthening protection against AI-introduced vulnerabilities at scale.
 
 ---
 
 ## Configuration Options
 
-### IRENEPipeline Parameters
+### GUARDIANPipeline Parameters
 
 ```python
-pipeline = IRENEPipeline(
+pipeline = GUARDIANPipeline(
     lm=lm,                                    # DSPy language model instance
     max_refinement_iterations=3,              # Max compile-fix loops (default: 3)
-    # corpus_path defaults to irene/corpus/examples.json
+    # corpus_path defaults to guardian/corpus/examples.json
 )
 ```
 
@@ -477,7 +479,7 @@ API_BASE=http://localhost:8000/v1            # Optional: Custom API endpoint
 API_KEY=your-api-key                         # API key for the LLM provider
 ```
 
-## Extending IRENE
+## Extending GUARDIAN
 
 ### Add New Translation Patterns
 

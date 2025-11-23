@@ -4,9 +4,9 @@ import dspy
 from .rule_analyzer import StaticRuleAnalyzer, format_hints
 from .retriever import ExampleRetriever, format_examples
 from .compiler import RustCompiler, check_rustc_available
-from .dspy_modules import IRENEModules
+from .dspy_modules import GUARDIANModules
 
-class IRENEPipeline:
+class GUARDIANPipeline:
     def __init__(
         self,
         lm: dspy.LM,
@@ -24,7 +24,7 @@ class IRENEPipeline:
         self.lm = lm
 
         # Initialize DSPy modules
-        self.modules = IRENEModules()
+        self.modules = GUARDIANModules()
 
         # Check if rustc is available
         if not check_rustc_available():
@@ -33,7 +33,7 @@ class IRENEPipeline:
 
     def translate(self, c_code: str, verbose: bool = True) -> dict:
         """
-        Translate C code to Rust using the IRENE framework.
+        Translate C code to Rust using the GUARDIAN framework.
 
         Args:
             c_code: The C source code to translate
@@ -48,7 +48,7 @@ class IRENEPipeline:
         """
         if verbose:
             print("\n" + "=" * 60)
-            print("IRENE C-to-Rust Translation Pipeline")
+            print("GUARDIAN C-to-Rust Translation Pipeline")
             print("=" * 60 + "\n")
 
         # Step 1: Analyze rules
