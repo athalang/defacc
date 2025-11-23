@@ -13,11 +13,16 @@ As AI coding assistants become more powerful, they present a critical dual-use r
 
 **The Defensive Gap:**
 
-Current LLM translation approaches lack mechanisms to prevent safety-critical errors. A naive LLM translator could:
+Research shows that naive C-to-Rust transpilation is insufficient for security. Recent empirical studies (Wu et al., 2024) found that:
+- Only 56-62% of C vulnerabilities are detected by Rust's built-in checks after transpilation
+- Vulnerabilities can persist through semantic masking or latent unsafe preservation
+- Logic errors and resource management flaws often execute silently in transpiled Rust
+
+Current LLM translation approaches lack mechanisms to prevent these safety-critical errors. A naive LLM translator could:
 - Translate `malloc` to unsafe Rust instead of `Vec<T>`
 - Miss integer type conversions that cause overflows
 - Generate buffer operations that compile but violate memory safety
-- Introduce race conditions or use-after-free vulnerabilities
+- Introduce race conditions or use-after-free vulnerabilities that escape detection
 
 **IRENE's Defensive Approach:**
 
