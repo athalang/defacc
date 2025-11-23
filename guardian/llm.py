@@ -1,4 +1,4 @@
-"""Helpers for configuring dspy and constructing the IRENE pipeline."""
+"""Helpers for configuring dspy and constructing the GUARDIAN pipeline."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def build_lm(config: Optional[LMConfig] = None) -> dspy.LM:
     )
 
 
-def build_pipeline(config: Optional[LMConfig] = None) -> IRENEPipeline:
+def build_pipeline(config: Optional[LMConfig] = None) -> GUARDIANPipeline:
     lm = build_lm(config)
     dspy.configure(lm=lm)
-    return IRENEPipeline(lm=lm)
+    return GUARDIANPipeline(lm=lm)
