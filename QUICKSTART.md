@@ -40,33 +40,19 @@ cp .env.example .env
 # Choose one configuration:
 ```
 
-**Option 1: Anthropic Claude (recommended)**
-```bash
-MODEL=anthropic/claude-3-5-sonnet-20241022
-TEMPERATURE=0.7
-API_KEY=sk-ant-your-key-here
-```
-
-**Option 2: OpenAI GPT-4**
-```bash
-MODEL=openai/gpt-4
-TEMPERATURE=0.7
-API_KEY=sk-your-key-here
-```
-
-**Option 3: Local Model (Ollama)**
-```bash
-MODEL=ollama/mistral
-TEMPERATURE=0.7
-API_BASE=http://localhost:11434
-```
-
-**Option 4: Self-hosted vLLM**
+**Option 1: Hosted vLLM (recommended)**
 ```bash
 MODEL=hosted_vllm/Qwen/Qwen3-Coder-30B-A3B-Instruct
 TEMPERATURE=0.7
-API_BASE=http://127.0.0.1:8000/v1
+API_BASE=your-api-base-here
 API_KEY=PLACEHOLDER
+```
+
+**Option 2: Local Model**
+```bash
+MODEL=ollama/qwen3-coder
+TEMPERATURE=0.7
+API_BASE=http://localhost:11434
 ```
 
 ## Run Your First Translation

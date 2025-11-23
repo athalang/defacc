@@ -44,10 +44,10 @@ Create `.env` file:
 cp .env.example .env
 ```
 
-Edit with your API key (Claude Sonnet recommended):
+Edit with your API key (Qwen3-Coder recommended):
 ```
-MODEL=anthropic/claude-3-5-sonnet-20241022
-API_KEY=sk-ant-your-key-here
+MODEL=hosted_vllm/Qwen/Qwen3-Coder-30B-A3B-Instruct
+API_KEY=your-key-here
 ```
 
 ### Run
@@ -148,7 +148,7 @@ import dspy
 from guardian.pipeline import GUARDIANPipeline
 
 # Configure LLM
-lm = dspy.LM(model='anthropic/claude-3-5-sonnet-20241022', api_key='...')
+lm = dspy.LM(model='hosted_vllm/Qwen/Qwen3-Coder-30B-A3B-Instruct', api_key='...')
 dspy.configure(lm=lm)
 
 # Create pipeline
