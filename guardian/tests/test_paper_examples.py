@@ -1,109 +1,121 @@
-"""Test cases from the IRENE paper examples."""
+"""Test cases"""
 
-# Test case 1: scanf with two integers
+# Test case 1: scanf with three integers and compute average
 TEST_SCANF_TWO_INTS = """
 #include <stdio.h>
 
 int main() {
-    int a, b;
-    scanf("%d%d", &a, &b);
-    printf("%d\\n", a + b);
+    int x, y, z;
+    scanf("%d %d %d", &x, &y, &z);
+    int avg = (x + y + z) / 3;
+    printf("%d\\n", avg);
     return 0;
 }
 """
 
-# Test case 2: Array indexing with int
+# Test case 2: Array indexing with int - find maximum
 TEST_ARRAY_INDEXING = """
 #include <stdio.h>
 
 int main() {
-    int arr[10];
-    for (int i = 0; i < 10; i++) {
-        arr[i] = i * 2;
+    int arr[8];
+    for (int i = 0; i < 8; i++) {
+        arr[i] = (i * 3) % 7;
     }
 
-    int idx = 5;
-    printf("%d\\n", arr[idx]);
+    int max_idx = 0;
+    for (int i = 1; i < 8; i++) {
+        if (arr[i] > arr[max_idx]) {
+            max_idx = i;
+        }
+    }
+    printf("%d\\n", arr[max_idx]);
     return 0;
 }
 """
 
-# Test case 3: long long cast for multiplication
+# Test case 3: long long cast for multiplication with three values
 TEST_LONG_LONG_MULT = """
 #include <stdio.h>
 
 int main() {
-    int x = 100000;
-    int y = 100000;
-    long long result = (long long)x * y;
+    int a = 50000;
+    int b = 60000;
+    int c = 2;
+    long long result = (long long)a * b * c;
     printf("%lld\\n", result);
     return 0;
 }
 """
 
-# Test case 4: malloc with sizeof
+# Test case 4: malloc with sizeof - dynamic fibonacci
 TEST_MALLOC_ARRAY = """
 #include <stdio.h>
 #include <stdlib.h>
 
 int main() {
-    int n = 10;
-    int *arr = (int*)malloc(n * sizeof(int));
+    int n = 12;
+    int *fib = (int*)malloc(n * sizeof(int));
 
-    for (int i = 0; i < n; i++) {
-        arr[i] = i * i;
+    fib[0] = 1;
+    fib[1] = 1;
+    for (int i = 2; i < n; i++) {
+        fib[i] = fib[i-1] + fib[i-2];
     }
 
-    printf("%d\\n", arr[5]);
-    free(arr);
+    printf("%d\\n", fib[n-1]);
+    free(fib);
     return 0;
 }
 """
 
-# Test case 5: Mixed scanf and array operations
+# Test case 5: Mixed scanf and array operations - compute product
 TEST_MIXED_IO_ARRAY = """
 #include <stdio.h>
 
 int main() {
-    int n;
-    scanf("%d", &n);
+    int count;
+    scanf("%d", &count);
 
-    int arr[100];
-    for (int i = 0; i < n; i++) {
-        scanf("%d", &arr[i]);
+    int numbers[50];
+    for (int j = 0; j < count; j++) {
+        scanf("%d", &numbers[j]);
     }
 
-    int sum = 0;
-    for (int i = 0; i < n; i++) {
-        sum += arr[i];
+    int product = 1;
+    for (int j = 0; j < count; j++) {
+        product *= numbers[j];
     }
 
-    printf("%d\\n", sum);
+    printf("%d\\n", product);
     return 0;
 }
 """
 
-# Test case 6: Simple pointer allocation
+# Test case 6: Simple pointer allocation with doubling
 TEST_SIMPLE_POINTER = """
 #include <stdlib.h>
+#include <stdio.h>
 
 int main() {
     int *p = (int*)malloc(sizeof(int));
-    *p = 42;
-    int value = *p;
+    *p = 17;
+    *p = *p * 2;
+    printf("%d\\n", *p);
     free(p);
     return 0;
 }
 """
 
-# Test case 7: Float conversion
+# Test case 7: Float conversion with computation
 TEST_FLOAT_CONVERSION = """
 #include <stdio.h>
 
 int main() {
-    int x = 10;
-    int y = 3;
-    float result = (float)x / y;
+    int a = 7;
+    int b = 4;
+    int c = 2;
+    float result = ((float)a / b) + c;
     printf("%.2f\\n", result);
     return 0;
 }
