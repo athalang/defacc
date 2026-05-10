@@ -28,8 +28,6 @@ def format_translation_result(result: TranslationResult) -> str:
     lines.append("-" * 80)
     lines.append("")
     lines.append("Artifacts:")
-    lines.append(f"  Rule hints: {len(result.artifacts.rule_hints)}")
-    lines.append(f"  Examples: {len(result.artifacts.examples)}")
     lines.append("  Summary:")
     lines.extend(_indent_block(result.artifacts.summary_text.strip() or "(none)", indent="    "))
     return "\n".join(lines)

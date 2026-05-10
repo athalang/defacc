@@ -14,8 +14,6 @@ class CodeSummary(dspy.Signature):
 
 class CToRust(dspy.Signature):
     c_code: str = dspy.InputField(desc="C source code to translate")
-    rule_hints: str = dspy.InputField(desc="Translation rules and patterns to apply")
-    examples: str = dspy.InputField(desc="Similar C-to-Rust translation examples")
     summary: str = dspy.InputField(desc="High-level summary of the code's purpose")
     declaration_context: str = dspy.InputField(
         desc="Description of the declarations in this snippet so the translator can handle functions, structs, enums, etc."

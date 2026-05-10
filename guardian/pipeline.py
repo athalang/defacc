@@ -1,4 +1,3 @@
-import os
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,8 +6,6 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 import dspy
 import networkx as nx
 
-from .rule_analyzer import RuleHint, StaticRuleAnalyzer, format_hints
-from .retriever import ExampleRetriever, TranslationExample, format_examples
 from .compiler import RustCompiler, check_rustc_available
 from .dspy_modules import GUARDIANModules
 from .dependency_graph import DeclarationRecord, SCCComponent
@@ -23,8 +20,6 @@ class CompilationResult:
 
 @dataclass
 class TranslationArtifacts:
-    rule_hints: List[RuleHint]
-    examples: List[TranslationExample]
     summary_text: str
     raw_summary: Optional[object] = None
 
@@ -40,14 +35,10 @@ class GUARDIANPipeline:
     def __init__(
         self,
         lm: dspy.LM,
-        corpus_path=os.path.join(os.path.dirname(__file__), "corpus/examples.json"),
         max_refinement_iterations: int = 5,
     ):
         self.max_iterations = max_refinement_iterations
 
-        # Initialize components
-        self.rule_analyzer = StaticRuleAnalyzer()
-        self.retriever = ExampleRetriever(corpus_path)
         self.compiler = RustCompiler()
 
         # Store LM instance (caller should configure DSPy before creating pipeline)
@@ -65,7 +56,6 @@ class GUARDIANPipeline:
         self,
         c_code: str,
         verbose: bool = True,
-        rule_hints: Optional[List[RuleHint]] = None,
         summary_override: Optional[str] = None,
         declaration_context: Optional[str] = None,
         dependency_context: Optional[str] = None,
@@ -76,8 +66,6 @@ class GUARDIANPipeline:
         Args:
             c_code: The C source code to translate
             verbose: Print progress information
-            rule_hints: Optional pre-computed rule hints to reuse instead of re-running
-                libclang analysis
             summary_override: Optional plain-text summary to feed directly to the translator
             dependency_context: Optional summaries of upstream declarations that already exist
 
@@ -89,8 +77,6 @@ class GUARDIANPipeline:
                 - errors: Final error messages (if any)
                 - summary: Either the summarizer output or the provided summary text
         """
-        computed_hints, categories = self._analyze_rules(c_code, rule_hints, verbose)
-        examples = self._retrieve_examples(c_code, categories, verbose)
         root_context = declaration_context or self._build_context(kind="translation_unit", name="input")
         summary_obj, summary_payload = self._summarize_code(
             c_code,
@@ -100,8 +86,6 @@ class GUARDIANPipeline:
         )
         rust_code = self._initial_translation(
             c_code,
-            computed_hints,
-            examples,
             summary_payload,
             verbose,
             declaration_context=root_context,
@@ -110,8 +94,6 @@ class GUARDIANPipeline:
         final_code, compilation = self._compile_with_refinement(rust_code, verbose)
 
         artifacts = TranslationArtifacts(
-            rule_hints=computed_hints,
-            examples=examples,
             summary_text=summary_payload or "",
             raw_summary=summary_obj,
         )
@@ -146,7 +128,6 @@ class GUARDIANPipeline:
 
             declaration_summaries = self._summaries_for_declarations(component.declarations, verbose=verbose)
             summary_text = self._format_declaration_summaries(declaration_summaries)
-            merged_rule_hints = self._collect_rule_hints(component.declarations)
             component_context = self._build_context(
                 kind="scc",
                 name=f"SCC {component.index}: {decl_names}",
@@ -160,7 +141,6 @@ class GUARDIANPipeline:
             translation = self.translate(
                 c_code=c_source,
                 verbose=verbose,
-                rule_hints=merged_rule_hints or None,
                 summary_override=summary_text or None,
                 declaration_context=component_context,
                 dependency_context=dependency_context or None,
@@ -186,33 +166,6 @@ Code Summary:
 - Functionality: {summary.function}
 """
 
-    def _analyze_rules(
-        self, c_code: str, cached_hints: Optional[List[RuleHint]], verbose: bool
-    ) -> Tuple[List[RuleHint], List[str]]:
-        if cached_hints is None:
-            if verbose:
-                print("Step 1: Analyzing C code patterns...")
-            computed_hints = self.rule_analyzer.analyze(c_code)
-        else:
-            computed_hints = cached_hints
-            if verbose:
-                print("Step 1: Using provided rule hints...")
-        categories = list({hint.category for hint in computed_hints if getattr(hint, "category", None)})
-        if verbose:
-            print(f"  Detected categories: {categories}")
-            print(f"  Found {len(computed_hints)} rule hints\n")
-        return computed_hints, categories
-
-    def _retrieve_examples(
-        self, c_code: str, categories: List[str], verbose: bool
-    ) -> List[TranslationExample]:
-        if verbose:
-            print("Step 2: Retrieving similar examples...")
-        examples = self.retriever.retrieve(c_code, categories, top_k=3)
-        if verbose:
-            print(f"  Retrieved {len(examples)} relevant examples\n")
-        return examples
-
     def _summarize_code(
         self,
         c_code: str,
@@ -225,7 +178,7 @@ Code Summary:
         summary_obj = None
         if summary_override is None:
             if verbose:
-                print("Step 3: Summarizing C code structure...")
+                print("Step 1: Summarizing C code structure...")
             summary_obj = self.modules.summarizer(
                 c_code=c_code,
                 declaration_context=declaration_context or "",
@@ -237,25 +190,21 @@ Code Summary:
                 print(f"  Function: {summary_obj.function}\n")
         else:
             if verbose:
-                print("Step 3: Using provided summary.\n")
+                print("Step 1: Using provided summary.\n")
         return summary_obj, summary_payload or ""
 
     def _initial_translation(
         self,
         c_code: str,
-        rule_hints: List[RuleHint],
-        examples: List[TranslationExample],
         summary_payload: str,
         verbose: bool,
         declaration_context: Optional[str] = None,
         dependency_context: Optional[str] = None,
     ) -> str:
         if verbose:
-            print("Step 4: Translating to Rust...")
+            print("Step 2: Translating to Rust...")
         rust_result = self.modules.translator(
             c_code=c_code,
-            rule_hints=format_hints(rule_hints),
-            examples=format_examples(examples),
             summary=summary_payload,
             declaration_context=declaration_context or "",
             dependency_context=dependency_context or "",
@@ -266,7 +215,7 @@ Code Summary:
 
     def _compile_with_refinement(self, rust_code: str, verbose: bool) -> Tuple[str, CompilationResult]:
         if verbose:
-            print("Step 5: Compiling and refining...")
+            print("Step 3: Compiling and refining...")
 
         errors = ""
         compiled = False
@@ -346,23 +295,6 @@ Code Summary:
             header = f"// Declaration: {decl.name} ({decl.kind})"
             chunks.append(f"{header}\n{code}")
         return "\n\n".join(chunks)
-
-    def _collect_rule_hints(self, declarations: Iterable[DeclarationRecord]) -> List[RuleHint]:
-        merged: List[RuleHint] = []
-        seen = set()
-        for decl in declarations:
-            for hint in getattr(decl, "rule_hints", []) or []:
-                key = (
-                    getattr(hint, "category", ""),
-                    getattr(hint, "code_snippet", ""),
-                    getattr(hint, "suggested_rust", ""),
-                    getattr(hint, "explanation", ""),
-                )
-                if key in seen:
-                    continue
-                seen.add(key)
-                merged.append(hint)
-        return merged
 
     def _build_context(
         self,

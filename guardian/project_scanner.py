@@ -28,7 +28,6 @@ from guardian.dependency_graph import (
     build_dependency_graph,
     collect_translation_unit_data,
 )
-from guardian.rule_analyzer import StaticRuleAnalyzer
 
 
 @dataclass
@@ -128,7 +127,7 @@ def _read_compile_commands(db_path: Path) -> List[CompileCommand]:
     return commands
 
 
-ContextEntry = Tuple[LibclangContext, StaticRuleAnalyzer]
+ContextEntry = LibclangContext
 
 
 def _resolve_context(
@@ -136,7 +135,7 @@ def _resolve_context(
     compile_args: Iterable[str],
     cache: Optional[Dict[Tuple[str, Tuple[str, ...]], ContextEntry]] = None,
 ) -> ContextEntry:
-    """Return a LibclangContext and StaticRuleAnalyzer, caching when possible."""
+    """Return a LibclangContext, caching when possible."""
     args_tuple = tuple(compile_args)
     key = (source_path, args_tuple)
     if cache is not None:
@@ -148,10 +147,9 @@ def _resolve_context(
         clang_args=list(args_tuple),
         source_filename=source_path,
     )
-    analyzer = StaticRuleAnalyzer(clang=clang)
     if cache is not None:
-        cache[key] = (clang, analyzer)
-    return clang, analyzer
+        cache[key] = clang
+    return clang
 
 
 def _process_command(
@@ -176,7 +174,7 @@ def _process_command(
         return None
 
     cache_ref = context_cache if enable_cache else None
-    clang, analyzer = _resolve_context(source_str, compile_args, cache_ref)
+    clang = _resolve_context(source_str, compile_args, cache_ref)
 
     try:
         translation_unit = clang.parse_translation_unit(c_code)
@@ -190,16 +188,9 @@ def _process_command(
         print(f"[error] Failed to parse {source_path}: {exc}")
         return None
 
-    try:
-        rule_hints = analyzer.analyze_translation_unit(translation_unit)
-    except Exception as exc:
-        print(f"[error] Failed to analyze rules in {source_path}: {exc}")
-        rule_hints = []
-
     return collect_translation_unit_data(
         tu_graph=tu_graph,
         definitions=definitions,
-        rule_hints=rule_hints,
         c_code=c_code,
         normalized_source=normalized_source,
         normalized_source_set=normalized_source_set,

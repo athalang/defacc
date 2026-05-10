@@ -143,4 +143,3 @@ print(f"Iterations: {result.compilation.iterations}")
 | `ModuleNotFoundError: dspy` | Activate the venv (`source .venv/bin/activate`) or rerun `uv sync`. |
 | `rustc not found` | Install via `curl ... sh` (see above) and `source $HOME/.cargo/env`. |
 | Missing `.env` | `cp .env.example .env` and add your credentials. |
-| No corpus file | Run from repo root; `guardian/corpus/examples.json` ships in-tree. |

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from clang.cindex import Cursor, CursorKind, TranslationUnit
 import networkx as nx
@@ -13,7 +13,6 @@ from guardian.clang_utils import (
     normalize_path,
     stable_cursor_id,
 )
-from guardian.rule_analyzer import RuleHint
 
 
 @dataclass
@@ -25,7 +24,6 @@ class DeclarationRecord:
     line: Optional[int]
     column: Optional[int]
     code: str
-    rule_hints: List[RuleHint] = field(default_factory=list)
     aliases: Set[str] = field(default_factory=set)
     extra_locations: Set[Tuple[str, Optional[int], Optional[int]]] = field(default_factory=set)
 
@@ -79,30 +77,6 @@ class ProjectGraphBuilder:
         if existing.name != new_record.name:
             existing.aliases.add(new_record.name)
         existing.extra_locations.update(new_record.extra_locations)
-        self._merge_rule_hints(existing, new_record)
-
-    @staticmethod
-    def _merge_rule_hints(existing: DeclarationRecord, new_record: DeclarationRecord) -> None:
-        seen = {
-            (
-                hint.category,
-                hint.code_snippet,
-                hint.suggested_rust,
-                hint.explanation,
-            )
-            for hint in existing.rule_hints
-        }
-        for hint in new_record.rule_hints:
-            key = (
-                hint.category,
-                hint.code_snippet,
-                hint.suggested_rust,
-                hint.explanation,
-            )
-            if key in seen:
-                continue
-            existing.rule_hints.append(hint)
-            seen.add(key)
 
     def build(self) -> ProjectGraph:
         graph = nx.DiGraph()
@@ -131,7 +105,6 @@ def collect_translation_unit_data(
     *,
     tu_graph: nx.DiGraph,
     definitions: Dict[str, Cursor],
-    rule_hints: Iterable[RuleHint],
     c_code: str,
     normalized_source: str,
     normalized_source_set: Set[str],
@@ -140,7 +113,6 @@ def collect_translation_unit_data(
     """Extract declaration metadata and edges from a parsed translation unit."""
     records: List[DeclarationRecord] = []
     edges: Set[Tuple[str, str, str]] = set()
-    hint_list = list(rule_hints)
 
     for name, cursor in definitions.items():
         func_id = stable_cursor_id(cursor, name, normalized_source)
@@ -153,7 +125,6 @@ def collect_translation_unit_data(
             line=loc.get("line"),
             column=loc.get("column"),
             code=extract_source(cursor, c_code, normalized_source_set),
-            rule_hints=list(hint_list),
         )
         record.extra_locations.add((source_path, loc.get("line"), loc.get("column")))
         records.append(record)
