@@ -1,20 +1,7 @@
 import dspy
 
-class CodeSummary(dspy.Signature):
-    c_code: str = dspy.InputField(desc="C source code snippet to analyse")
-    declaration_context: str = dspy.InputField(
-        desc="Plain-text description of what this snippet declares (function, struct, enum, typedef, SCC chunk, etc.)"
-    )
-    arguments: str = dspy.OutputField(desc="Inputs, members, or components involved in this declaration")
-    outputs: str = dspy.OutputField(
-        desc="Results, exposed data, or observable state produced/represented by this declaration"
-    )
-    function: str = dspy.OutputField(desc="High-level purpose or semantics regardless of declaration kind")
-
-
 class CToRust(dspy.Signature):
     c_code: str = dspy.InputField(desc="C source code to translate")
-    summary: str = dspy.InputField(desc="High-level summary of the code's purpose")
     declaration_context: str = dspy.InputField(
         desc="Description of the declarations in this snippet so the translator can handle functions, structs, enums, etc."
     )
@@ -47,6 +34,5 @@ class GUARDIANModules:
     """Container for all DSPy modules used in GUARDIAN pipeline."""
 
     def __init__(self):
-        self.summarizer = dspy.ChainOfThought(CodeSummary)
         self.translator = dspy.ChainOfThought(CToRust)
         self.refiner = dspy.ChainOfThought(RefineRust)

@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 import dspy
 import networkx as nx
 
-from .compiler import RustCompiler, check_rustc_available
+from .compiler import CCompiler, RustCompiler, check_c_compiler_available, check_rustc_available
 from .dspy_modules import GUARDIANModules
 from .dependency_graph import DeclarationRecord, SCCComponent
 from .project_scanner import build_project_graph
@@ -19,16 +19,10 @@ class CompilationResult:
 
 
 @dataclass
-class TranslationArtifacts:
-    summary_text: str
-    raw_summary: Optional[object] = None
-
-
-@dataclass
 class TranslationResult:
     rust_code: str
     compilation: CompilationResult
-    artifacts: TranslationArtifacts
+    c_compilation: Optional[CompilationResult] = None
 
 
 class GUARDIANPipeline:
@@ -40,6 +34,7 @@ class GUARDIANPipeline:
         self.max_iterations = max_refinement_iterations
 
         self.compiler = RustCompiler()
+        self.c_compiler = CCompiler()
 
         # Store LM instance (caller should configure DSPy before creating pipeline)
         self.lm = lm
@@ -51,12 +46,13 @@ class GUARDIANPipeline:
         if not check_rustc_available():
             print("Warning: rustc not found. Compilation checks will be skipped.")
             print("Install Rust from: https://rustup.rs/")
+        if not check_c_compiler_available():
+            print("Warning: clang not found. Original C compilation checks will be skipped.")
 
     def translate(
         self,
         c_code: str,
         verbose: bool = True,
-        summary_override: Optional[str] = None,
         declaration_context: Optional[str] = None,
         dependency_context: Optional[str] = None,
     ) -> TranslationResult:
@@ -66,39 +62,31 @@ class GUARDIANPipeline:
         Args:
             c_code: The C source code to translate
             verbose: Print progress information
-            summary_override: Optional plain-text summary to feed directly to the translator
-            dependency_context: Optional summaries of upstream declarations that already exist
+            dependency_context: Optional metadata for upstream declarations that already exist
 
         Returns:
             Dictionary containing:
                 - rust_code: The final Rust code
                 - compiled: Whether the code compiled successfully
+                - c_compilation: Whether the original C compiled successfully
                 - iterations: Number of refinement iterations used
                 - errors: Final error messages (if any)
-                - summary: Either the summarizer output or the provided summary text
         """
+        c_compilation = self._compile_c_source(c_code, verbose)
         root_context = declaration_context or self._build_context(kind="translation_unit", name="input")
-        summary_obj, summary_payload = self._summarize_code(
-            c_code,
-            summary_override=summary_override,
-            verbose=verbose,
-            declaration_context=root_context,
-        )
         rust_code = self._initial_translation(
             c_code,
-            summary_payload,
             verbose,
             declaration_context=root_context,
             dependency_context=dependency_context,
         )
         final_code, compilation = self._compile_with_refinement(rust_code, verbose)
 
-        artifacts = TranslationArtifacts(
-            summary_text=summary_payload or "",
-            raw_summary=summary_obj,
+        return TranslationResult(
+            rust_code=final_code,
+            compilation=compilation,
+            c_compilation=c_compilation,
         )
-
-        return TranslationResult(rust_code=final_code, compilation=compilation, artifacts=artifacts)
 
     def translate_project(self, compile_commands: Path, verbose: bool = True) -> List[dict]:
         """Translate an entire project by iterating over SCCs from the project scanner."""
@@ -111,7 +99,7 @@ class GUARDIANPipeline:
             return []
 
         component_dependencies = self._map_component_dependencies(project_graph.graph, components)
-        component_summaries: Dict[int, List[dict]] = {}
+        translated_declarations: Dict[int, List[dict]] = {}
         results: List[dict] = []
         for component in components:
             decl_names = ", ".join(decl.name for decl in component.declarations)
@@ -126,8 +114,6 @@ class GUARDIANPipeline:
                     print("  Skipping SCC with no extractable code.")
                 continue
 
-            declaration_summaries = self._summaries_for_declarations(component.declarations, verbose=verbose)
-            summary_text = self._format_declaration_summaries(declaration_summaries)
             component_context = self._build_context(
                 kind="scc",
                 name=f"SCC {component.index}: {decl_names}",
@@ -135,13 +121,12 @@ class GUARDIANPipeline:
             dependency_context = self._build_dependency_context(
                 component_index=component.index,
                 component_dependencies=component_dependencies,
-                component_summaries=component_summaries,
+                translated_declarations=translated_declarations,
             )
 
             translation = self.translate(
                 c_code=c_source,
                 verbose=verbose,
-                summary_override=summary_text or None,
                 declaration_context=component_context,
                 dependency_context=dependency_context or None,
             )
@@ -150,62 +135,27 @@ class GUARDIANPipeline:
                 {
                     "scc_index": component.index,
                     "declarations": [decl.name for decl in component.declarations],
-                    "summaries": declaration_summaries,
                     "result": translation,
                 }
             )
-            component_summaries[component.index] = declaration_summaries
+            translated_declarations[component.index] = [
+                {"name": decl.name, "kind": decl.kind}
+                for decl in component.declarations
+            ]
 
         return results
-
-    def _format_summary(self, summary) -> str:
-        return f"""
-Code Summary:
-- Parameters: {summary.arguments}
-- Returns: {summary.outputs}
-- Functionality: {summary.function}
-"""
-
-    def _summarize_code(
-        self,
-        c_code: str,
-        *,
-        declaration_context: Optional[str] = None,
-        summary_override: Optional[str],
-        verbose: bool,
-    ) -> Tuple[Optional[object], str]:
-        summary_payload = summary_override
-        summary_obj = None
-        if summary_override is None:
-            if verbose:
-                print("Step 1: Summarizing C code structure...")
-            summary_obj = self.modules.summarizer(
-                c_code=c_code,
-                declaration_context=declaration_context or "",
-            )
-            summary_payload = self._format_summary(summary_obj)
-            if verbose and summary_obj:
-                print(f"  Params: {summary_obj.arguments}")
-                print(f"  Returns: {summary_obj.outputs}")
-                print(f"  Function: {summary_obj.function}\n")
-        else:
-            if verbose:
-                print("Step 1: Using provided summary.\n")
-        return summary_obj, summary_payload or ""
 
     def _initial_translation(
         self,
         c_code: str,
-        summary_payload: str,
         verbose: bool,
         declaration_context: Optional[str] = None,
         dependency_context: Optional[str] = None,
     ) -> str:
         if verbose:
-            print("Step 2: Translating to Rust...")
+            print("Step 1: Translating to Rust...")
         rust_result = self.modules.translator(
             c_code=c_code,
-            summary=summary_payload,
             declaration_context=declaration_context or "",
             dependency_context=dependency_context or "",
         )
@@ -213,9 +163,27 @@ Code Summary:
             print("  Initial translation complete\n")
         return rust_result.rust_code
 
+    def _compile_c_source(self, c_code: str, verbose: bool) -> CompilationResult:
+        if verbose:
+            print("Step 0: Compiling original C...")
+
+        success, errors = self.c_compiler.compile(c_code)
+        if verbose:
+            if success:
+                print("  C compilation successful\n")
+            else:
+                print("  C compilation failed")
+                print(f"    Errors: {errors[:200]}...\n")
+
+        return CompilationResult(
+            success=success,
+            iterations=1,
+            errors=None if success else errors,
+        )
+
     def _compile_with_refinement(self, rust_code: str, verbose: bool) -> Tuple[str, CompilationResult]:
         if verbose:
-            print("Step 3: Compiling and refining...")
+            print("Step 2: Compiling and refining...")
 
         errors = ""
         compiled = False
@@ -246,45 +214,6 @@ Code Summary:
             errors=None if compiled else errors,
         )
         return rust_code, result
-
-    def _summaries_for_declarations(
-        self, declarations: Iterable[DeclarationRecord], verbose: bool = True
-    ) -> List[dict]:
-        entries: List[dict] = []
-        for decl in declarations:
-            code = (decl.code or "").strip()
-            if not code:
-                continue
-            summary = self.modules.summarizer(
-                c_code=code,
-                declaration_context=self._build_context(kind=decl.kind, name=decl.name),
-            )
-            if verbose:
-                print(
-                    f"  Summary for {decl.name} ({decl.kind}): params={summary.arguments}, returns={summary.outputs}"
-                )
-            entries.append(
-                {
-                    "name": decl.name,
-                    "kind": decl.kind,
-                    "arguments": summary.arguments,
-                    "outputs": summary.outputs,
-                    "function": summary.function,
-                }
-            )
-        return entries
-
-    def _format_declaration_summaries(self, summaries: Iterable[dict]) -> str:
-        summaries = list(summaries)
-        if not summaries:
-            return ""
-        lines = ["Code Summary by Declaration:"]
-        for entry in summaries:
-            lines.append(f"- {entry['name']} ({entry['kind']}):")
-            lines.append(f"  Parameters: {entry['arguments']}")
-            lines.append(f"  Returns: {entry['outputs']}")
-            lines.append(f"  Functionality: {entry['function']}")
-        return "\n".join(lines)
 
     def _combine_declaration_code(self, declarations: Iterable[DeclarationRecord]) -> str:
         chunks: List[str] = []
@@ -338,7 +267,7 @@ Code Summary:
         *,
         component_index: int,
         component_dependencies: Dict[int, Set[int]],
-        component_summaries: Dict[int, List[dict]],
+        translated_declarations: Dict[int, List[dict]],
         max_hops: int = 2,
         max_entries: int = 12,
     ) -> str:
@@ -348,7 +277,7 @@ Code Summary:
 
         seen_components: Set[int] = set()
         seen_decls: Set[str] = set()
-        lines: List[str] = ["Known dependencies:"]
+        lines: List[str] = ["Already translated dependencies:"]
         queue = deque([(idx, 1) for idx in sorted(upstream)])
 
         while queue and len(seen_decls) < max_entries:
@@ -356,7 +285,7 @@ Code Summary:
             if idx in seen_components or depth > max_hops:
                 continue
             seen_components.add(idx)
-            entries = component_summaries.get(idx, [])
+            entries = translated_declarations.get(idx, [])
             if entries:
                 lines.append(f"SCC {idx}:")
                 for entry in entries:
@@ -364,12 +293,7 @@ Code Summary:
                     if not name or name in seen_decls:
                         continue
                     kind = entry.get("kind", "")
-                    args = entry.get("arguments", "?")
-                    outputs = entry.get("outputs", "?")
-                    function = entry.get("function", "")
-                    lines.append(
-                        f"- {name} ({kind}) | params: {args} | returns: {outputs} | function: {function}"
-                    )
+                    lines.append(f"- {name} ({kind})")
                     seen_decls.add(name)
                     if len(seen_decls) >= max_entries:
                         break

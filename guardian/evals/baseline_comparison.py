@@ -3,7 +3,7 @@ Baseline Comparison: GUARDIAN vs Vanilla LLM
 
 This eval demonstrates GUARDIAN's defensive improvements by comparing:
 1. Vanilla LLM - Direct prompting without defensive framework
-2. GUARDIAN - Full pipeline with rules, examples, and refinement
+2. GUARDIAN - Translation with compiler-guided refinement
 
 Metrics:
 - Compilation success rate
@@ -29,7 +29,6 @@ def vanilla_llm_translate():
     This uses simple prompting without:
     - Static rule analysis
     - Example retrieval
-    - Structured summarization
     - Error-driven refinement
     """
     async def solve(state: TaskState, generate: Generate):
@@ -111,9 +110,6 @@ def guardian_translate():
     GUARDIAN solver: Full defensive pipeline.
 
     Uses:
-    - Static rule analysis
-    - BM25 example retrieval
-    - Structured summarization
     - Error-driven refinement (up to 3 iterations)
     """
     async def solve(state: TaskState, generate: Generate):
@@ -144,6 +140,12 @@ def guardian_translate():
             state.output.completion = "compiled" if compilation.success else "failed"
             state.metadata["c_code"] = c_code
             state.metadata["rust_code"] = result.rust_code
+            state.metadata["c_compiled"] = (
+                result.c_compilation.success if result.c_compilation else False
+            )
+            state.metadata["c_errors"] = (
+                result.c_compilation.errors if result.c_compilation else ""
+            ) or ""
             state.metadata["compiled"] = compilation.success
             state.metadata["iterations"] = compilation.iterations
             state.metadata["errors"] = compilation.errors or ""

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from .project_runner import translate_compile_commands
-from .reporting import format_project_translation, format_translation_result, summarize_result_line
+from .reporting import format_project_translation, format_translation_result, format_result_line
 from .tests.test_paper_examples import ALL_TEST_CASES
 
 def run_demo(pipeline, test_name: str = "scanf_two_ints"):
@@ -52,7 +52,7 @@ def run_all_tests(pipeline):
         result = pipeline.translate(c_code, verbose=False)
 
         results[name] = result
-        print(summarize_result_line(name, result))
+        print(format_result_line(name, result))
 
     print("\n" + "=" * 80)
     print("SUMMARY")

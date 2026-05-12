@@ -51,6 +51,12 @@ def translate_c_to_rust():
             state.output.completion = "compiled" if compilation.success else "failed"
             state.metadata["c_code"] = c_code
             state.metadata["rust_code"] = result.rust_code
+            state.metadata["c_compiled"] = (
+                result.c_compilation.success if result.c_compilation else False
+            )
+            state.metadata["c_errors"] = (
+                result.c_compilation.errors if result.c_compilation else ""
+            ) or ""
             state.metadata["compiled"] = compilation.success
             state.metadata["iterations"] = compilation.iterations
             state.metadata["errors"] = compilation.errors or ""

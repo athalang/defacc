@@ -1,8 +1,162 @@
 import re
+import os
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+
+@dataclass
+class CompilerOutput:
+    success: bool
+    output_path: Optional[Path]
+    stdout: str
+    stderr: str
+    command: List[str]
+
+    @property
+    def messages(self) -> str:
+        return self.stderr if self.stderr else self.stdout
+
+
+def _default_executable_name() -> str:
+    return "a.exe" if os.name == "nt" else "a.out"
+
+
+class CCompiler:
+    def __init__(self, compiler: str = "clang"):
+        self.compiler = compiler
+
+    def compile(
+        self,
+        c_code: str,
+        *,
+        std: str = "c11",
+        extra_args: Optional[List[str]] = None,
+        timeout: int = 30,
+    ) -> Tuple[bool, str]:
+        """
+        Compile C code and return (success, errors/output).
+        """
+        try:
+            with tempfile.TemporaryDirectory(prefix="irene-c-") as tmpdir:
+                if self._detect_has_main(c_code):
+                    output = self.compile_executable(
+                        c_code,
+                        Path(tmpdir) / _default_executable_name(),
+                        std=std,
+                        extra_args=extra_args,
+                        timeout=timeout,
+                    )
+                else:
+                    output = self.compile_object(
+                        c_code,
+                        Path(tmpdir) / "input.o",
+                        std=std,
+                        extra_args=extra_args,
+                        timeout=timeout,
+                    )
+                return output.success, output.messages
+        except Exception as e:
+            return False, f"C compilation error: {str(e)}"
+
+    def compile_object(
+        self,
+        c_code: str,
+        output_path: Path,
+        *,
+        std: str = "c11",
+        extra_args: Optional[List[str]] = None,
+        timeout: int = 30,
+    ) -> CompilerOutput:
+        """
+        Compile C code to a caller-owned object path.
+        """
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path = output_path.with_suffix(".c")
+        source_path.write_text(c_code)
+
+        args = [
+            self.compiler,
+            f"-std={std}",
+            "-c",
+            str(source_path),
+            "-o",
+            str(output_path),
+        ]
+        if extra_args:
+            args.extend(extra_args)
+
+        return self._run(args, output_path, timeout)
+
+    def compile_executable(
+        self,
+        c_code: str,
+        output_path: Path,
+        *,
+        std: str = "c11",
+        extra_args: Optional[List[str]] = None,
+        timeout: int = 30,
+    ) -> CompilerOutput:
+        """
+        Compile C code to a caller-owned executable path.
+        """
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path = output_path.with_suffix(".c")
+        source_path.write_text(c_code)
+
+        args = [
+            self.compiler,
+            f"-std={std}",
+            str(source_path),
+            "-o",
+            str(output_path),
+        ]
+        if extra_args:
+            args.extend(extra_args)
+
+        return self._run(args, output_path, timeout)
+
+    def _run(self, args: List[str], output_path: Path, timeout: int) -> CompilerOutput:
+        try:
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return CompilerOutput(
+                success=False,
+                output_path=None,
+                stdout="",
+                stderr=f"C compilation timed out after {timeout} seconds",
+                command=args,
+            )
+        except FileNotFoundError:
+            return CompilerOutput(
+                success=False,
+                output_path=None,
+                stdout="",
+                stderr=f"{self.compiler} not found. Please install clang or configure a C compiler.",
+                command=args,
+            )
+
+        return CompilerOutput(
+            success=result.returncode == 0,
+            output_path=output_path if result.returncode == 0 else None,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            command=args,
+        )
+
+    @staticmethod
+    def _detect_has_main(c_code: str) -> bool:
+        return re.search(r"\bint\s+main\s*\(", c_code) is not None
+
 
 class RustCompiler:
     def _filter_rustc_internal_errors(self, errors: str) -> str:
@@ -71,32 +225,16 @@ class RustCompiler:
         """
         try:
             with tempfile.TemporaryDirectory(prefix="irene-rs-") as tmpdir:
-                tmp_path = Path(tmpdir)
-                source_path = tmp_path / "input.rs"
-                source_path.write_text(rust_code)
-                output_path = tmp_path / "a.out"
-
-                resolved_crate_type = crate_type or self._detect_crate_type(rust_code)
-                args = [
-                    "rustc",
-                    str(source_path),
-                    "--crate-type",
-                    resolved_crate_type,
-                    "-o",
-                    str(output_path),
-                ]
-                if extra_args:
-                    args.extend(extra_args)
-
-                result = subprocess.run(
-                    args,
-                    capture_output=True,
-                    text=True,
+                output = self.compile_executable(
+                    rust_code,
+                    Path(tmpdir) / _default_executable_name(),
+                    crate_type=crate_type,
+                    extra_args=extra_args,
                     timeout=timeout,
                 )
 
-                success = result.returncode == 0
-                errors = result.stderr if result.stderr else result.stdout
+                success = output.success
+                errors = output.messages
 
                 if errors and not success:
                     errors = self._filter_rustc_internal_errors(errors)
@@ -108,6 +246,67 @@ class RustCompiler:
             return False, "rustc not found. Please install Rust: https://rustup.rs/"
         except Exception as e:
             return False, f"Compilation error: {str(e)}"
+
+    def compile_executable(
+        self,
+        rust_code: str,
+        output_path: Path,
+        *,
+        crate_type: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+        timeout: int = 30,
+    ) -> CompilerOutput:
+        """
+        Compile Rust code to a caller-owned executable path.
+        """
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path = output_path.with_suffix(".rs")
+        source_path.write_text(rust_code)
+
+        resolved_crate_type = crate_type or self._detect_crate_type(rust_code)
+        args = [
+            "rustc",
+            str(source_path),
+            "--crate-type",
+            resolved_crate_type,
+            "-o",
+            str(output_path),
+        ]
+        if extra_args:
+            args.extend(extra_args)
+
+        try:
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return CompilerOutput(
+                success=False,
+                output_path=None,
+                stdout="",
+                stderr=f"Rust compilation timed out after {timeout} seconds",
+                command=args,
+            )
+        except FileNotFoundError:
+            return CompilerOutput(
+                success=False,
+                output_path=None,
+                stdout="",
+                stderr="rustc not found. Please install Rust: https://rustup.rs/",
+                command=args,
+            )
+
+        return CompilerOutput(
+            success=result.returncode == 0,
+            output_path=output_path if result.returncode == 0 else None,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            command=args,
+        )
 
     @staticmethod
     def _detect_crate_type(rust_code: str) -> str:
@@ -121,4 +320,14 @@ def check_rustc_available() -> bool:
         )
         return True
     except FileNotFoundError: # rustc not in PATH
+        return False
+
+
+def check_c_compiler_available(compiler: str = "clang") -> bool:
+    try:
+        subprocess.run(
+            [compiler, "--version"], check=True, timeout=5, capture_output=True
+        )
+        return True
+    except FileNotFoundError:
         return False
