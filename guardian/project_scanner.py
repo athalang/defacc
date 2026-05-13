@@ -11,13 +11,14 @@ tools like bear, intercept-build, or compiledb:
     compiledb -n make
 """
 
-import argparse
 import json
 import shlex
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+import typer
 
 from guardian.clang_utils import LibclangContext, normalize_path
 from guardian.dependency_graph import (
@@ -289,33 +290,28 @@ def scan_project(
     return graph
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Iterate over declarations in a C project using compile_commands.json"
-    )
-    parser.add_argument(
+def main(
+    compile_commands: Path = typer.Option(
+        Path("compile_commands.json"),
         "--compile-commands",
         "-c",
-        type=Path,
-        default=Path("compile_commands.json"),
         help="Path to compile_commands.json (generate with bear or intercept-build)",
-    )
-    parser.add_argument(
+    ),
+    jobs: int = typer.Option(
+        1,
         "--jobs",
         "-j",
-        type=int,
-        default=1,
         help="Number of translation units to process in parallel",
-    )
-    args = parser.parse_args()
-    db_path = args.compile_commands
+    ),
+) -> None:
+    db_path = compile_commands
     if not db_path.exists():
         raise SystemExit(
             f"{db_path} not found."
         )
 
-    scan_project(db_path, max_workers=max(1, args.jobs))
+    scan_project(db_path, max_workers=max(1, jobs))
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
