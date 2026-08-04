@@ -5,65 +5,14 @@ Simple eval task to measure translation quality.
 """
 
 from inspect_ai import Task, task
-from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
-from inspect_ai.solver import TaskState, solver, Generate
+from inspect_ai.solver import TaskState
 
-from guardian.pipeline import GUARDIANPipeline
 from guardian.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
 
+from ._common import count_unsafe, create_samples, guardian_translate
 
-@solver
-def translate_c_to_rust():
-    """
-    Solver that uses GUARDIAN pipeline to translate C to Rust.
-    """
-    async def solve(state: TaskState, generate: Generate):
-        # Get the C code from input
-        test_name = state.input_text
-
-        if test_name not in ALL_TEST_CASES:
-            state.output.completion = f"Error: Unknown test case {test_name}"
-            return state
-
-        c_code = ALL_TEST_CASES[test_name]
-
-        # Initialize pipeline (using the LLM from state)
-        from guardian.settings import settings
-        import dspy
-
-        lm = dspy.LM(
-            model=settings.model,
-            api_base=settings.api_base,
-            temperature=settings.temperature,
-            api_key=settings.api_key,
-        )
-
-        # Use dspy.context() for async-safe configuration
-        with dspy.context(lm=lm):
-            pipeline = GUARDIANPipeline(lm=lm)
-
-            # Translate
-            result = pipeline.translate(c_code, verbose=False)
-            compilation = result.compilation
-
-            # Store result in state
-            state.output.completion = "compiled" if compilation.success else "failed"
-            state.metadata["c_code"] = c_code
-            state.metadata["rust_code"] = result.rust_code
-            state.metadata["c_compiled"] = (
-                result.c_compilation.success if result.c_compilation else False
-            )
-            state.metadata["c_errors"] = (
-                result.c_compilation.errors if result.c_compilation else ""
-            ) or ""
-            state.metadata["compiled"] = compilation.success
-            state.metadata["iterations"] = compilation.iterations
-            state.metadata["errors"] = compilation.errors or ""
-
-        return state
-
-    return solve
+_translate_solver = guardian_translate()
 
 
 @scorer(metrics=[accuracy()])
@@ -100,10 +49,7 @@ def safety_scorer():
         iterations = state.metadata.get("iterations", 0)
 
         # Count unsafe patterns
-        unsafe_blocks = rust_code.count("unsafe {") + rust_code.count("unsafe{")
-        unsafe_fn = rust_code.count("unsafe fn")
-        unsafe_impl = rust_code.count("unsafe impl")
-        total_unsafe = unsafe_blocks + unsafe_fn + unsafe_impl
+        unsafe_blocks, unsafe_fn, unsafe_impl, total_unsafe = count_unsafe(rust_code)
 
         # Check for other safety indicators
         has_unwrap = ".unwrap()" in rust_code
@@ -133,26 +79,15 @@ def safety_scorer():
     return score
 
 
-def _get_test_category(test_name: str) -> str:
-    """Helper to determine test category."""
+def _category_metadata(test_name: str) -> dict:
+    """Return eval metadata describing the test category."""
     if test_name in BASIC_TEST_CASES:
-        return "basic"
+        category = "basic"
     elif test_name in ADVERSARIAL_TEST_CASES:
-        return "adversarial"
-    return "unknown"
-
-
-def _create_samples(test_cases: dict) -> list[Sample]:
-    """Helper to create Sample objects from test cases with category metadata."""
-    samples = []
-    for test_name in test_cases.keys():
-        samples.append(Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-            metadata={"category": _get_test_category(test_name)}
-        ))
-    return samples
+        category = "adversarial"
+    else:
+        category = "unknown"
+    return {"category": category}
 
 
 def single_test(test_name: str = "scanf_two_ints"):
@@ -170,8 +105,8 @@ def single_test(test_name: str = "scanf_two_ints"):
         raise ValueError(f"Unknown test case: {test_name}. Available: {list(ALL_TEST_CASES.keys())}")
 
     return Task(
-        dataset=_create_samples({test_name: ALL_TEST_CASES[test_name]}),
-        solver=translate_c_to_rust(),
+        dataset=create_samples({test_name: ALL_TEST_CASES[test_name]}, _category_metadata),
+        solver=_translate_solver,
         scorer=compilation_success()
     )
 
@@ -194,8 +129,8 @@ def all_tests():
         inspect eval guardian/evals/c_to_rust.py@all_tests
     """
     return Task(
-        dataset=_create_samples(ALL_TEST_CASES),
-        solver=translate_c_to_rust(),
+        dataset=create_samples(ALL_TEST_CASES, _category_metadata),
+        solver=_translate_solver,
         scorer=safety_scorer()
     )
 
@@ -209,8 +144,8 @@ def basic_tests():
         inspect eval guardian/evals/c_to_rust.py@basic_tests
     """
     return Task(
-        dataset=_create_samples(BASIC_TEST_CASES),
-        solver=translate_c_to_rust(),
+        dataset=create_samples(BASIC_TEST_CASES, _category_metadata),
+        solver=_translate_solver,
         scorer=safety_scorer()
     )
 
@@ -234,8 +169,8 @@ def adversarial_tests():
         inspect eval guardian/evals/c_to_rust.py@adversarial_tests
     """
     return Task(
-        dataset=_create_samples(ADVERSARIAL_TEST_CASES),
-        solver=translate_c_to_rust(),
+        dataset=create_samples(ADVERSARIAL_TEST_CASES, _category_metadata),
+        solver=_translate_solver,
         scorer=safety_scorer()
     )
 
@@ -252,8 +187,8 @@ def all_tests_compilation():
         inspect eval guardian/evals/c_to_rust.py@all_tests_compilation
     """
     return Task(
-        dataset=_create_samples(ALL_TEST_CASES),
-        solver=translate_c_to_rust(),
+        dataset=create_samples(ALL_TEST_CASES, _category_metadata),
+        solver=_translate_solver,
         scorer=compilation_success()
     )
 
@@ -269,7 +204,7 @@ def adversarial_tests_compilation():
         inspect eval guardian/evals/c_to_rust.py@adversarial_tests_compilation
     """
     return Task(
-        dataset=_create_samples(ADVERSARIAL_TEST_CASES),
-        solver=translate_c_to_rust(),
+        dataset=create_samples(ADVERSARIAL_TEST_CASES, _category_metadata),
+        solver=_translate_solver,
         scorer=compilation_success()
     )

@@ -12,13 +12,16 @@ Metrics:
 """
 
 from inspect_ai import Task, task
-from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
-from guardian.pipeline import GUARDIANPipeline
 from guardian.compiler import RustCompiler
-from guardian.tests.test_paper_examples import BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
+from guardian.llm import build_lm
+from guardian.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
+
+from ._common import count_unsafe, create_samples, guardian_translate
+
+_guardian_solver = guardian_translate()
 
 
 @solver
@@ -34,12 +37,11 @@ def vanilla_llm_translate():
     async def solve(state: TaskState, generate: Generate):
         test_name = state.input_text
 
-        all_cases = {**BASIC_TEST_CASES, **ADVERSARIAL_TEST_CASES}
-        if test_name not in all_cases:
+        if test_name not in ALL_TEST_CASES:
             state.output.completion = f"Error: Unknown test case {test_name}"
             return state
 
-        c_code = all_cases[test_name]
+        c_code = ALL_TEST_CASES[test_name]
 
         # Simple vanilla prompt
         vanilla_prompt = f"""Translate the following C code to safe Rust code.
@@ -56,25 +58,18 @@ C code:
 
 Rust code:"""
 
-        from guardian.settings import settings
         import dspy
 
-        lm = dspy.LM(
-            model=settings.model,
-            api_base=settings.api_base,
-            temperature=settings.temperature,
-            api_key=settings.api_key,
-        )
-
+        lm = build_lm()
         with dspy.context(lm=lm):
             # Direct LLM call without GUARDIAN pipeline
             response = lm(vanilla_prompt)
 
             # Handle response - dspy.LM() may return string or list
-            if isinstance(response, list):
-                rust_code = response[0] if response else ""
-            else:
-                rust_code = str(response)
+            raw_response = response
+            if isinstance(raw_response, list):
+                raw_response = raw_response[0] if raw_response else ""
+            rust_code = str(raw_response).strip()
 
             # Try to clean up common LLM formatting issues
             rust_code = rust_code.strip()
@@ -104,58 +99,6 @@ Rust code:"""
     return solve
 
 
-@solver
-def guardian_translate():
-    """
-    GUARDIAN solver: Full defensive pipeline.
-
-    Uses:
-    - Error-driven refinement (up to 3 iterations)
-    """
-    async def solve(state: TaskState, generate: Generate):
-        test_name = state.input_text
-
-        all_cases = {**BASIC_TEST_CASES, **ADVERSARIAL_TEST_CASES}
-        if test_name not in all_cases:
-            state.output.completion = f"Error: Unknown test case {test_name}"
-            return state
-
-        c_code = all_cases[test_name]
-
-        from guardian.settings import settings
-        import dspy
-
-        lm = dspy.LM(
-            model=settings.model,
-            api_base=settings.api_base,
-            temperature=settings.temperature,
-            api_key=settings.api_key,
-        )
-
-        with dspy.context(lm=lm):
-            pipeline = GUARDIANPipeline(lm=lm)
-            result = pipeline.translate(c_code, verbose=False)
-            compilation = result.compilation
-
-            state.output.completion = "compiled" if compilation.success else "failed"
-            state.metadata["c_code"] = c_code
-            state.metadata["rust_code"] = result.rust_code
-            state.metadata["c_compiled"] = (
-                result.c_compilation.success if result.c_compilation else False
-            )
-            state.metadata["c_errors"] = (
-                result.c_compilation.errors if result.c_compilation else ""
-            ) or ""
-            state.metadata["compiled"] = compilation.success
-            state.metadata["iterations"] = compilation.iterations
-            state.metadata["errors"] = compilation.errors or ""
-            state.metadata["approach"] = "guardian"
-
-        return state
-
-    return solve
-
-
 @scorer(metrics=[accuracy()])
 def comparison_scorer():
     """
@@ -178,10 +121,7 @@ def comparison_scorer():
         approach = state.metadata.get("approach", "unknown")
 
         # Count unsafe patterns
-        unsafe_blocks = rust_code.count("unsafe {") + rust_code.count("unsafe{")
-        unsafe_fn = rust_code.count("unsafe fn")
-        unsafe_impl = rust_code.count("unsafe impl")
-        total_unsafe = unsafe_blocks + unsafe_fn + unsafe_impl
+        unsafe_blocks, unsafe_fn, unsafe_impl, total_unsafe = count_unsafe(rust_code)
 
         # Determine score
         if not compiled:
@@ -211,18 +151,6 @@ def comparison_scorer():
     return score
 
 
-def _create_samples(test_cases: dict) -> list[Sample]:
-    """Helper to create Sample objects from test cases."""
-    return [
-        Sample(
-            input=test_name,
-            target="compiled",
-            id=test_name,
-        )
-        for test_name in test_cases.keys()
-    ]
-
-
 @task
 def vanilla_basic():
     """
@@ -232,7 +160,7 @@ def vanilla_basic():
         inspect eval guardian/evals/baseline_comparison.py@vanilla_basic
     """
     return Task(
-        dataset=_create_samples(BASIC_TEST_CASES),
+        dataset=create_samples(BASIC_TEST_CASES),
         solver=vanilla_llm_translate(),
         scorer=comparison_scorer()
     )
@@ -247,8 +175,8 @@ def guardian_basic():
         inspect eval guardian/evals/baseline_comparison.py@guardian_basic
     """
     return Task(
-        dataset=_create_samples(BASIC_TEST_CASES),
-        solver=guardian_translate(),
+        dataset=create_samples(BASIC_TEST_CASES),
+        solver=_guardian_solver,
         scorer=comparison_scorer()
     )
 
@@ -262,7 +190,7 @@ def vanilla_adversarial():
         inspect eval guardian/evals/baseline_comparison.py@vanilla_adversarial
     """
     return Task(
-        dataset=_create_samples(ADVERSARIAL_TEST_CASES),
+        dataset=create_samples(ADVERSARIAL_TEST_CASES),
         solver=vanilla_llm_translate(),
         scorer=comparison_scorer()
     )
@@ -277,14 +205,10 @@ def guardian_adversarial():
         inspect eval guardian/evals/baseline_comparison.py@guardian_adversarial
     """
     return Task(
-        dataset=_create_samples(ADVERSARIAL_TEST_CASES),
-        solver=guardian_translate(),
+        dataset=create_samples(ADVERSARIAL_TEST_CASES),
+        solver=_guardian_solver,
         scorer=comparison_scorer()
     )
-
-
-# Convenience combined tasks
-ALL_TEST_CASES = {**BASIC_TEST_CASES, **ADVERSARIAL_TEST_CASES}
 
 
 @task
@@ -296,7 +220,7 @@ def vanilla_all():
         inspect eval guardian/evals/baseline_comparison.py@vanilla_all
     """
     return Task(
-        dataset=_create_samples(ALL_TEST_CASES),
+        dataset=create_samples(ALL_TEST_CASES),
         solver=vanilla_llm_translate(),
         scorer=comparison_scorer()
     )
@@ -311,7 +235,7 @@ def guardian_all():
         inspect eval guardian/evals/baseline_comparison.py@guardian_all
     """
     return Task(
-        dataset=_create_samples(ALL_TEST_CASES),
-        solver=guardian_translate(),
+        dataset=create_samples(ALL_TEST_CASES),
+        solver=_guardian_solver,
         scorer=comparison_scorer()
     )

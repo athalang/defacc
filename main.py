@@ -8,12 +8,10 @@ if __name__ == "__main__":
     from pathlib import Path
     from typing import Optional
 
-    import dspy
     import typer
 
-    from guardian.settings import settings
-    from guardian.pipeline import GUARDIANPipeline
     from guardian.demo import run_demo, run_all_tests, run_project_demo
+    from guardian.llm import build_pipeline
     from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
     def main(
@@ -39,14 +37,7 @@ if __name__ == "__main__":
         ),
     ) -> None:
         # Configure LLM and create pipeline
-        lm = dspy.LM(
-            model=settings.model,
-            api_base=settings.api_base,
-            temperature=settings.temperature,
-            api_key=settings.api_key,
-        )
-        dspy.configure(lm=lm)
-        pipeline = GUARDIANPipeline(lm=lm)
+        pipeline = build_pipeline()
 
         if compile_commands:
             run_project_demo(pipeline, compile_commands, output_path=output_rust)

@@ -24,6 +24,48 @@ def _default_executable_name() -> str:
     return "a.exe" if os.name == "nt" else "a.out"
 
 
+def _run_compile(
+    args: List[str],
+    output_path: Path,
+    timeout: int,
+    *,
+    timeout_message: str,
+    not_found_message: str,
+) -> CompilerOutput:
+    """Run a compiler subprocess, mapping failures to a CompilerOutput."""
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return CompilerOutput(
+            success=False,
+            output_path=None,
+            stdout="",
+            stderr=timeout_message,
+            command=args,
+        )
+    except FileNotFoundError:
+        return CompilerOutput(
+            success=False,
+            output_path=None,
+            stdout="",
+            stderr=not_found_message,
+            command=args,
+        )
+
+    return CompilerOutput(
+        success=result.returncode == 0,
+        output_path=output_path if result.returncode == 0 else None,
+        stdout=result.stdout,
+        stderr=result.stderr,
+        command=args,
+    )
+
+
 class CCompiler:
     def __init__(self, compiler: str = "clang"):
         self.compiler = compiler
@@ -73,23 +115,14 @@ class CCompiler:
         """
         Compile C code to a caller-owned object path.
         """
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        source_path = output_path.with_suffix(".c")
-        source_path.write_text(c_code)
-
-        args = [
-            self.compiler,
-            f"-std={std}",
-            "-c",
-            str(source_path),
-            "-o",
-            str(output_path),
-        ]
-        if extra_args:
-            args.extend(extra_args)
-
-        return self._run(args, output_path, timeout)
+        return self._compile(
+            c_code,
+            output_path,
+            std=std,
+            extra_args=extra_args,
+            timeout=timeout,
+            object_mode=True,
+        )
 
     def compile_executable(
         self,
@@ -103,54 +136,44 @@ class CCompiler:
         """
         Compile C code to a caller-owned executable path.
         """
+        return self._compile(
+            c_code,
+            output_path,
+            std=std,
+            extra_args=extra_args,
+            timeout=timeout,
+            object_mode=False,
+        )
+
+    def _compile(
+        self,
+        c_code: str,
+        output_path: Path,
+        *,
+        std: str,
+        extra_args: Optional[List[str]],
+        timeout: int,
+        object_mode: bool,
+    ) -> CompilerOutput:
+        """Shared C compilation used by both object and executable targets."""
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         source_path = output_path.with_suffix(".c")
         source_path.write_text(c_code)
 
-        args = [
-            self.compiler,
-            f"-std={std}",
-            str(source_path),
-            "-o",
-            str(output_path),
-        ]
+        args = [self.compiler, f"-std={std}"]
+        if object_mode:
+            args.append("-c")
+        args.extend([str(source_path), "-o", str(output_path)])
         if extra_args:
             args.extend(extra_args)
 
-        return self._run(args, output_path, timeout)
-
-    def _run(self, args: List[str], output_path: Path, timeout: int) -> CompilerOutput:
-        try:
-            result = subprocess.run(
-                args,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            return CompilerOutput(
-                success=False,
-                output_path=None,
-                stdout="",
-                stderr=f"C compilation timed out after {timeout} seconds",
-                command=args,
-            )
-        except FileNotFoundError:
-            return CompilerOutput(
-                success=False,
-                output_path=None,
-                stdout="",
-                stderr=f"{self.compiler} not found. Please install clang or configure a C compiler.",
-                command=args,
-            )
-
-        return CompilerOutput(
-            success=result.returncode == 0,
-            output_path=output_path if result.returncode == 0 else None,
-            stdout=result.stdout,
-            stderr=result.stderr,
-            command=args,
+        return _run_compile(
+            args,
+            output_path,
+            timeout,
+            timeout_message=f"C compilation timed out after {timeout} seconds",
+            not_found_message=f"{self.compiler} not found. Please install clang or configure a C compiler.",
         )
 
     @staticmethod
@@ -233,17 +256,11 @@ class RustCompiler:
                     timeout=timeout,
                 )
 
-                success = output.success
                 errors = output.messages
-
-                if errors and not success:
+                if errors and not output.success:
                     errors = self._filter_rustc_internal_errors(errors)
 
-                return success, errors
-        except subprocess.TimeoutExpired:
-            return False, f"Compilation timed out after {timeout} seconds"
-        except FileNotFoundError:
-            return False, "rustc not found. Please install Rust: https://rustup.rs/"
+                return output.success, errors
         except Exception as e:
             return False, f"Compilation error: {str(e)}"
 
@@ -276,36 +293,12 @@ class RustCompiler:
         if extra_args:
             args.extend(extra_args)
 
-        try:
-            result = subprocess.run(
-                args,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            return CompilerOutput(
-                success=False,
-                output_path=None,
-                stdout="",
-                stderr=f"Rust compilation timed out after {timeout} seconds",
-                command=args,
-            )
-        except FileNotFoundError:
-            return CompilerOutput(
-                success=False,
-                output_path=None,
-                stdout="",
-                stderr="rustc not found. Please install Rust: https://rustup.rs/",
-                command=args,
-            )
-
-        return CompilerOutput(
-            success=result.returncode == 0,
-            output_path=output_path if result.returncode == 0 else None,
-            stdout=result.stdout,
-            stderr=result.stderr,
-            command=args,
+        return _run_compile(
+            args,
+            output_path,
+            timeout,
+            timeout_message=f"Compilation timed out after {timeout} seconds",
+            not_found_message="rustc not found. Please install Rust: https://rustup.rs/",
         )
 
     @staticmethod

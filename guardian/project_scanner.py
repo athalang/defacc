@@ -24,7 +24,6 @@ from guardian.clang_utils import LibclangContext, normalize_path
 from guardian.dependency_graph import (
     ProjectGraph,
     ProjectGraphBuilder,
-    SCCComponent,
     TranslationUnitData,
     build_dependency_graph,
     collect_translation_unit_data,
@@ -128,14 +127,11 @@ def _read_compile_commands(db_path: Path) -> List[CompileCommand]:
     return commands
 
 
-ContextEntry = LibclangContext
-
-
 def _resolve_context(
     source_path: str,
     compile_args: Iterable[str],
-    cache: Optional[Dict[Tuple[str, Tuple[str, ...]], ContextEntry]] = None,
-) -> ContextEntry:
+    cache: Optional[Dict[Tuple[str, Tuple[str, ...]], LibclangContext]] = None,
+) -> LibclangContext:
     """Return a LibclangContext, caching when possible."""
     args_tuple = tuple(compile_args)
     key = (source_path, args_tuple)
@@ -156,7 +152,7 @@ def _resolve_context(
 def _process_command(
     command: CompileCommand,
     *,
-    context_cache: Optional[Dict[Tuple[str, Tuple[str, ...]], ContextEntry]] = None,
+    context_cache: Optional[Dict[Tuple[str, Tuple[str, ...]], LibclangContext]] = None,
     enable_cache: bool = True,
 ) -> Optional[TranslationUnitData]:
     source_path = command.source_path
@@ -203,7 +199,7 @@ def build_project_graph(db_path: Path, *, max_workers: int = 1) -> ProjectGraph:
     """Return a merged dependency graph and declaration metadata for a project."""
     commands = _read_compile_commands(db_path)
     builder = ProjectGraphBuilder()
-    cache: Optional[Dict[Tuple[str, Tuple[str, ...]], ContextEntry]] = {}
+    cache: Optional[Dict[Tuple[str, Tuple[str, ...]], LibclangContext]] = {}
 
     if max_workers > 1:
         # Libclang contexts are not thread-safe, so disable caching when parallelising.
@@ -233,17 +229,6 @@ def build_project_graph(db_path: Path, *, max_workers: int = 1) -> ProjectGraph:
                 builder.add_translation_unit(result)
 
     return builder.build()
-
-
-def iter_scc_components(
-    db_path: Path,
-    *,
-    project_graph: Optional[ProjectGraph] = None,
-    max_workers: int = 1,
-) -> List[SCCComponent]:
-    """Return SCC components with declaration metadata for project orchestration."""
-    graph = project_graph or build_project_graph(db_path, max_workers=max_workers)
-    return graph.components()
 
 
 def format_project_report(project_graph: ProjectGraph) -> str:

@@ -29,7 +29,7 @@ def run_demo(pipeline, test_name: str = "scanf_two_ints"):
     return result
 
 
-def run_project_demo(pipeline, compile_commands: str, verbose: bool = True, output_path: Optional[Path] = None):
+def run_project_demo(pipeline, compile_commands: "str | Path", verbose: bool = True, output_path: Optional[Path] = None):
     path = Path(compile_commands)
     results = translate_compile_commands(
         path,

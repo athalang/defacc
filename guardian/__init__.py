@@ -1,6 +1,4 @@
-from .pipeline import GUARDIANPipeline
-from .compiler import CCompiler, RustCompiler
-from .dspy_modules import GUARDIANModules
+"""GUARDIAN: Guarded Universal Architecture for Defensive Interpretation And traNslation."""
 
 __all__ = [
     "CCompiler",

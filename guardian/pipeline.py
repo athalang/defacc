@@ -1,13 +1,11 @@
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-import dspy
 import networkx as nx
 
 from .compiler import CCompiler, RustCompiler, check_c_compiler_available, check_rustc_available
-from .dspy_modules import GUARDIANModules
 from .dependency_graph import DeclarationRecord, SCCComponent
 from .project_scanner import build_project_graph
 
@@ -28,7 +26,7 @@ class TranslationResult:
 class GUARDIANPipeline:
     def __init__(
         self,
-        lm: dspy.LM,
+        lm: Any,
         max_refinement_iterations: int = 5,
     ):
         self.max_iterations = max_refinement_iterations
@@ -39,7 +37,8 @@ class GUARDIANPipeline:
         # Store LM instance (caller should configure DSPy before creating pipeline)
         self.lm = lm
 
-        # Initialize DSPy modules
+        # Initialize DSPy modules (lazy import to avoid the expensive dspy/litellm load)
+        from .dspy_modules import GUARDIANModules
         self.modules = GUARDIANModules()
 
         # Check if rustc is available

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from clang.cindex import Cursor, CursorKind, TranslationUnit
 import networkx as nx
@@ -234,35 +234,3 @@ def dependency_order(graph: nx.DiGraph) -> List[List[str]]:
         for comp in nx.topological_sort(condensation)
     ]
 
-def scc_snippets_with_code(
-    graph: nx.DiGraph,
-    definitions: Dict[str, Cursor],
-    c_code: str,
-    target_files: Optional[Set[str]] = None,
-) -> List[List[Dict[str, Any]]]:
-    """
-    Return code snippets grouped by strongly connected component in
-    condensation (dependency) order.
-
-    Each inner list corresponds to one SCC and contains entries with:
-    name, kind, code, and location.
-    """
-    if target_files is None:
-        target_files = {
-            normalize_path(cursor.location.file.name)
-            for cursor in definitions.values()
-            if cursor.location and cursor.location.file
-        }
-
-    return [
-        [
-            {
-                "name": name,
-                "kind": graph.nodes[name].get("kind", ""),
-                "location": graph.nodes[name].get("location", {}),
-                "code": extract_source(cursor, c_code, target_files) if (cursor := definitions.get(name)) else "",
-            }
-            for name in component
-        ]
-        for component in dependency_order(graph)
-    ]

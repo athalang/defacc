@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-import dspy
-
-from .pipeline import GUARDIANPipeline
 from .settings import settings
 
 
@@ -28,7 +25,9 @@ class LMConfig:
         )
 
 
-def build_lm(config: Optional[LMConfig] = None) -> dspy.LM:
+def build_lm(config: Optional[LMConfig] = None):
+    import dspy
+
     cfg = config or LMConfig.from_settings()
     if cfg.model is None or cfg.temperature is None:
         raise ValueError("LMConfig requires at least model and temperature")
@@ -40,7 +39,11 @@ def build_lm(config: Optional[LMConfig] = None) -> dspy.LM:
     )
 
 
-def build_pipeline(config: Optional[LMConfig] = None) -> GUARDIANPipeline:
+def build_pipeline(config: Optional[LMConfig] = None):
+    import dspy
+
+    from .pipeline import GUARDIANPipeline
+
     lm = build_lm(config)
     dspy.configure(lm=lm)
     return GUARDIANPipeline(lm=lm)

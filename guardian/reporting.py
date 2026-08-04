@@ -49,7 +49,6 @@ def format_project_translation(results: List[dict]) -> str:
     for entry in results:
         translation: TranslationResult = entry["result"]
         header = f"SCC {entry['scc_index']}: {', '.join(entry['declarations'])}"
-        lines.append(header)
         lines.append(format_result_line(header, translation))
     return "\n".join(lines)
 
