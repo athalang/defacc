@@ -58,41 +58,28 @@ C code:
 
 Rust code:"""
 
-        import dspy
-
         lm = build_lm()
-        with dspy.context(lm=lm):
-            # Direct LLM call without GUARDIAN pipeline
-            response = lm(vanilla_prompt)
+        response = lm(vanilla_prompt)
 
-            # Handle response - dspy.LM() may return string or list
-            raw_response = response
-            if isinstance(raw_response, list):
-                raw_response = raw_response[0] if raw_response else ""
-            rust_code = str(raw_response).strip()
+        rust_code = str(response).strip()
+        if rust_code.startswith("```rust"):
+            rust_code = rust_code[7:]
+        if rust_code.startswith("```"):
+            rust_code = rust_code[3:]
+        if rust_code.endswith("```"):
+            rust_code = rust_code[:-3]
+        rust_code = rust_code.strip()
 
-            # Try to clean up common LLM formatting issues
-            rust_code = rust_code.strip()
-            if rust_code.startswith("```rust"):
-                rust_code = rust_code[7:]
-            if rust_code.startswith("```"):
-                rust_code = rust_code[3:]
-            if rust_code.endswith("```"):
-                rust_code = rust_code[:-3]
-            rust_code = rust_code.strip()
+        compiler = RustCompiler()
+        compiled, errors = compiler.compile(rust_code)
 
-            # Try to compile
-            compiler = RustCompiler()
-            compiled, errors = compiler.compile(rust_code)
-
-            # Store results
-            state.output.completion = "compiled" if compiled else "failed"
-            state.metadata["c_code"] = c_code
-            state.metadata["rust_code"] = rust_code
-            state.metadata["compiled"] = compiled
-            state.metadata["iterations"] = 1  # No refinement
-            state.metadata["errors"] = errors if not compiled else ""
-            state.metadata["approach"] = "vanilla_llm"
+        state.output.completion = "compiled" if compiled else "failed"
+        state.metadata["c_code"] = c_code
+        state.metadata["rust_code"] = rust_code
+        state.metadata["compiled"] = compiled
+        state.metadata["iterations"] = 1  # No refinement
+        state.metadata["errors"] = errors if not compiled else ""
+        state.metadata["approach"] = "vanilla_llm"
 
         return state
 

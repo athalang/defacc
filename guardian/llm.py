@@ -1,4 +1,4 @@
-"""Helpers for configuring dspy and constructing the GUARDIAN pipeline."""
+"""Helpers for configuring LiteLLM and constructing the GUARDIAN pipeline."""
 
 from __future__ import annotations
 
@@ -25,25 +25,37 @@ class LMConfig:
         )
 
 
-def build_lm(config: Optional[LMConfig] = None):
-    import dspy
+class LiteLLMClient:
+    def __init__(self, config: LMConfig) -> None:
+        if config.model is None or config.temperature is None:
+            raise ValueError("LMConfig requires at least model and temperature")
+        self.config = config
 
+    def __call__(self, prompt: str) -> str:
+        from litellm import completion
+
+        kwargs = {
+            "model": self.config.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": self.config.temperature,
+        }
+        if self.config.api_base:
+            kwargs["api_base"] = self.config.api_base
+        if self.config.api_key:
+            kwargs["api_key"] = self.config.api_key
+
+        response = completion(**kwargs)
+        choice = response.choices[0]
+        return choice.message.content or ""
+
+
+def build_lm(config: Optional[LMConfig] = None):
     cfg = config or LMConfig.from_settings()
-    if cfg.model is None or cfg.temperature is None:
-        raise ValueError("LMConfig requires at least model and temperature")
-    return dspy.LM(
-        model=cfg.model,
-        api_base=cfg.api_base,
-        temperature=cfg.temperature,
-        api_key=cfg.api_key,
-    )
+    return LiteLLMClient(cfg)
 
 
 def build_pipeline(config: Optional[LMConfig] = None):
-    import dspy
-
     from .pipeline import GUARDIANPipeline
 
     lm = build_lm(config)
-    dspy.configure(lm=lm)
     return GUARDIANPipeline(lm=lm)

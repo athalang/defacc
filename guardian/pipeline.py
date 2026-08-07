@@ -34,12 +34,8 @@ class GUARDIANPipeline:
         self.compiler = RustCompiler()
         self.c_compiler = CCompiler()
 
-        # Store LM instance (caller should configure DSPy before creating pipeline)
+        # Store LM instance (caller should pass a prompt -> completion callable)
         self.lm = lm
-
-        # Initialize DSPy modules (lazy import to avoid the expensive dspy/litellm load)
-        from .dspy_modules import GUARDIANModules
-        self.modules = GUARDIANModules()
 
         # Check if rustc is available
         if not check_rustc_available():
@@ -61,7 +57,7 @@ class GUARDIANPipeline:
         Args:
             c_code: The C source code to translate
             verbose: Print progress information
-            dependency_context: Optional metadata for upstream declarations that already exist
+            dependency_context: Optional Rust definitions for upstream declarations that already exist
 
         Returns:
             Dictionary containing:
@@ -79,7 +75,11 @@ class GUARDIANPipeline:
             declaration_context=root_context,
             dependency_context=dependency_context,
         )
-        final_code, compilation = self._compile_with_refinement(rust_code, verbose)
+        final_code, compilation = self._compile_with_refinement(
+            rust_code,
+            verbose,
+            dependency_context=dependency_context,
+        )
 
         return TranslationResult(
             rust_code=final_code,
@@ -138,7 +138,7 @@ class GUARDIANPipeline:
                 }
             )
             translated_declarations[component.index] = [
-                {"name": decl.name, "kind": decl.kind}
+                {"name": decl.name, "kind": decl.kind, "rust_code": translation.rust_code}
                 for decl in component.declarations
             ]
 
@@ -153,14 +153,50 @@ class GUARDIANPipeline:
     ) -> str:
         if verbose:
             print("Step 1: Translating to Rust...")
-        rust_result = self.modules.translator(
-            c_code=c_code,
-            declaration_context=declaration_context or "",
-            dependency_context=dependency_context or "",
+        rust_result = self.lm(
+            self._build_translation_prompt(
+                c_code=c_code,
+                rust_partial=self._build_rust_partial(dependency_context=dependency_context),
+            )
         )
         if verbose:
             print("  Initial translation complete\n")
-        return rust_result.rust_code
+        return self._clean_llm_response(rust_result)
+
+    def _build_translation_prompt(self, *, c_code: str, rust_partial: str) -> str:
+        return (
+            "Translate the following C code to Rust by completing the partial Rust code.\n\n"
+            f"C code:\n{c_code.strip()}\n\n"
+            f"Rust partial code:\n{rust_partial.strip()}\n\n"
+            "Rust completion:"
+        )
+
+    def _clean_llm_response(self, response: Any) -> str:
+        if isinstance(response, list):
+            response = response[0] if response else ""
+        text = str(response).strip()
+        if text.startswith("```rust"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        return text.strip()
+
+    def _build_refinement_prompt(
+        self,
+        *,
+        rust_code: str,
+        dependency_context: str,
+        errors: str,
+    ) -> str:
+        return (
+            "Fix the Rust completion so the combined Rust code compiles.\n\n"
+            f"Rust partial code:\n{dependency_context.strip()}\n\n"
+            f"Rust completion:\n{rust_code.strip()}\n\n"
+            f"Compiler errors:\n{errors.strip()}\n\n"
+            "Fixed Rust completion:"
+        )
 
     def _compile_c_source(self, c_code: str, verbose: bool) -> CompilationResult:
         if verbose:
@@ -180,14 +216,21 @@ class GUARDIANPipeline:
             errors=None if success else errors,
         )
 
-    def _compile_with_refinement(self, rust_code: str, verbose: bool) -> Tuple[str, CompilationResult]:
+    def _compile_with_refinement(
+        self,
+        rust_code: str,
+        verbose: bool,
+        dependency_context: Optional[str] = None,
+    ) -> Tuple[str, CompilationResult]:
         if verbose:
             print("Step 2: Compiling and refining...")
 
         errors = ""
         compiled = False
+        dependency_context = dependency_context or ""
         for iteration in range(self.max_iterations):
-            success, errors = self.compiler.compile(rust_code)
+            compilable_code = self._compose_rust_fragment(dependency_context, rust_code)
+            success, errors = self.compiler.compile(compilable_code)
             if success:
                 compiled = True
                 if verbose:
@@ -201,8 +244,15 @@ class GUARDIANPipeline:
             if iteration < self.max_iterations - 1:
                 if verbose:
                     print("    Refining code...")
-                refined = self.modules.refiner(rust_code=rust_code, errors=errors)
-                rust_code = refined.fixed_code
+                rust_code = self._clean_llm_response(
+                    self.lm(
+                        self._build_refinement_prompt(
+                            rust_code=rust_code,
+                            dependency_context=dependency_context,
+                            errors=errors,
+                        )
+                    )
+                )
             else:
                 if verbose:
                     print("    Max iterations reached.\n")
@@ -213,6 +263,20 @@ class GUARDIANPipeline:
             errors=None if compiled else errors,
         )
         return rust_code, result
+
+    def _build_rust_partial(
+        self,
+        *,
+        dependency_context: Optional[str],
+    ) -> str:
+        return (dependency_context or "").strip()
+
+    def _compose_rust_fragment(self, dependency_context: str, rust_code: str) -> str:
+        dependency_context = (dependency_context or "").strip()
+        rust_code = (rust_code or "").strip()
+        if dependency_context and rust_code:
+            return f"{dependency_context}\n\n{rust_code}"
+        return dependency_context or rust_code
 
     def _combine_declaration_code(self, declarations: Iterable[DeclarationRecord]) -> str:
         chunks: List[str] = []
@@ -258,7 +322,7 @@ class GUARDIANPipeline:
                 continue
             if src_comp == dst_comp:
                 continue
-            dependencies[dst_comp].add(src_comp)
+            dependencies[src_comp].add(dst_comp)
         return dependencies
 
     def _build_dependency_context(
@@ -276,7 +340,8 @@ class GUARDIANPipeline:
 
         seen_components: Set[int] = set()
         seen_decls: Set[str] = set()
-        lines: List[str] = ["Already translated dependencies:"]
+        seen_rust_blocks: Set[str] = set()
+        lines: List[str] = []
         queue = deque([(idx, 1) for idx in sorted(upstream)])
 
         while queue and len(seen_decls) < max_entries:
@@ -286,13 +351,15 @@ class GUARDIANPipeline:
             seen_components.add(idx)
             entries = translated_declarations.get(idx, [])
             if entries:
-                lines.append(f"SCC {idx}:")
                 for entry in entries:
                     name = entry.get("name")
                     if not name or name in seen_decls:
                         continue
-                    kind = entry.get("kind", "")
-                    lines.append(f"- {name} ({kind})")
+                    rust_code = (entry.get("rust_code") or "").strip()
+                    if rust_code and rust_code not in seen_rust_blocks:
+                        lines.append(rust_code)
+                        lines.append("")
+                        seen_rust_blocks.add(rust_code)
                     seen_decls.add(name)
                     if len(seen_decls) >= max_entries:
                         break
@@ -301,6 +368,6 @@ class GUARDIANPipeline:
                     if parent not in seen_components:
                         queue.append((parent, depth + 1))
 
-        if len(lines) == 1:
+        if not lines:
             return ""
         return "\n".join(lines)

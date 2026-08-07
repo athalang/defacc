@@ -56,27 +56,24 @@ def guardian_translate():
 
         c_code = ALL_TEST_CASES[test_name]
 
-        import dspy
-
         lm = build_lm()
-        with dspy.context(lm=lm):
-            pipeline = GUARDIANPipeline(lm=lm)
-            result = pipeline.translate(c_code, verbose=False)
-            compilation = result.compilation
+        pipeline = GUARDIANPipeline(lm=lm)
+        result = pipeline.translate(c_code, verbose=False)
+        compilation = result.compilation
 
-            state.output.completion = "compiled" if compilation.success else "failed"
-            state.metadata["c_code"] = c_code
-            state.metadata["rust_code"] = result.rust_code
-            state.metadata["c_compiled"] = (
-                result.c_compilation.success if result.c_compilation else False
-            )
-            state.metadata["c_errors"] = (
-                result.c_compilation.errors if result.c_compilation else ""
-            ) or ""
-            state.metadata["compiled"] = compilation.success
-            state.metadata["iterations"] = compilation.iterations
-            state.metadata["errors"] = compilation.errors or ""
-            state.metadata["approach"] = "guardian"
+        state.output.completion = "compiled" if compilation.success else "failed"
+        state.metadata["c_code"] = c_code
+        state.metadata["rust_code"] = result.rust_code
+        state.metadata["c_compiled"] = (
+            result.c_compilation.success if result.c_compilation else False
+        )
+        state.metadata["c_errors"] = (
+            result.c_compilation.errors if result.c_compilation else ""
+        ) or ""
+        state.metadata["compiled"] = compilation.success
+        state.metadata["iterations"] = compilation.iterations
+        state.metadata["errors"] = compilation.errors or ""
+        state.metadata["approach"] = "guardian"
 
         return state
 

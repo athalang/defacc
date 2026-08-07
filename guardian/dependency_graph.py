@@ -176,11 +176,9 @@ def build_dependency_graph(
     translation_unit: Optional[TranslationUnit] = None,
 ) -> Tuple[nx.DiGraph, Dict[str, Cursor]]:
     """
-    Create a dependency graph between structs, enums, typedefs, and functions.
-
     Nodes are labelled with a "kind" attribute (struct, enum, typedef, function).
-    Edges indicate that the source depends on the target via either a function call
-    or a type reference.
+    Edges indicate that the source function depends on the target function via a
+    call.
     """
     if translation_unit is None:
         if c_code is None:
@@ -204,17 +202,11 @@ def build_dependency_graph(
 
             target_name = ""
             reason = ""
-            if node.kind == CursorKind.CALL_EXPR:
-                target_name = normalize_identifier(context.get_called_function_name(node))
-                reason = "call"
-            elif node.kind == CursorKind.TYPE_REF:
-                target_name = normalize_identifier(node.spelling or node.type.spelling)
-                if target_name == source_name:
-                    continue
-                reason = "type"
-            else:
+            if node.kind != CursorKind.CALL_EXPR:
                 continue
 
+            target_name = normalize_identifier(context.get_called_function_name(node))
+            reason = "call"
             if target_name and target_name in definitions:
                 graph.add_edge(source_name, target_name, reason=reason)
 
@@ -222,15 +214,12 @@ def build_dependency_graph(
 
 def dependency_order(graph: nx.DiGraph) -> List[List[str]]:
     """
-    Return the condensation graph's component order (SCCs) as groups.
-
-    Each item in the returned list is a list of node names belonging to a
-    strongly connected component. Components are topologically sorted by
-    dependency; member order is left as provided by NetworkX.
+    Return the condensation graph's dependency-first component order. 
+    Member order is left as provided by NetworkX.
     """
     condensation = nx.condensation(graph)
     return [
         list(condensation.nodes[comp]["members"])
-        for comp in nx.topological_sort(condensation)
+        for comp in nx.topological_sort(condensation.reverse(copy=False))
     ]
 
