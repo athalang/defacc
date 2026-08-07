@@ -6,11 +6,10 @@ Delegates to main module.
 
 if __name__ == "__main__":
     from pathlib import Path
-    from typing import Optional
 
     import typer
 
-    from guardian.demo import run_demo, run_all_tests, run_project_demo
+    from guardian.demo import run_demo, run_all_tests, run_file_demo
     from guardian.llm import build_pipeline
     from guardian.tests.test_paper_examples import ALL_TEST_CASES
 
@@ -25,22 +24,17 @@ if __name__ == "__main__":
             "--all",
             help="Run all test cases",
         ),
-        compile_commands: Optional[Path] = typer.Option(
+        input_c: Path | None = typer.Option(
             None,
-            "--compile-commands",
-            help="Run translation on a compile_commands.json file",
-        ),
-        output_rust: Path = typer.Option(
-            Path("project_output.rs"),
-            "--output-rust",
-            help="When translating a project, write the concatenated Rust to this file (default: project_output.rs)",
+            "--input-c",
+            help="Translate one C source file using single-file SCC ordering",
         ),
     ) -> None:
         # Configure LLM and create pipeline
         pipeline = build_pipeline()
 
-        if compile_commands:
-            run_project_demo(pipeline, compile_commands, output_path=output_rust)
+        if input_c:
+            run_file_demo(pipeline, input_c)
         elif all_:
             run_all_tests(pipeline)
         else:

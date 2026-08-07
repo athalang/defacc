@@ -5,6 +5,7 @@ import networkx as nx
 from guardian.clang_utils import LibclangContext
 from guardian.dependency_graph import SCCComponent, build_dependency_graph, dependency_order
 from guardian.pipeline import GUARDIANPipeline
+from guardian.project_scanner import build_source_graph
 
 
 class DependencyGraphTests(unittest.TestCase):
@@ -54,6 +55,20 @@ class DependencyGraphTests(unittest.TestCase):
 
         self.assertEqual({"is_even", "is_odd"}, ordered_components[0])
         self.assertEqual({"main"}, ordered_components[1])
+
+    def test_build_source_graph_orders_single_file_sccs(self) -> None:
+        c_code = """
+        int leaf(void) { return 1; }
+        int caller(void) { return leaf(); }
+        """
+
+        source_graph = build_source_graph(c_code)
+
+        components = [
+            [decl.name for decl in component.declarations]
+            for component in source_graph.components()
+        ]
+        self.assertEqual([["leaf"], ["caller"]], components)
 
     def test_component_dependency_map_uses_callee_as_caller_dependency(self) -> None:
         graph = nx.DiGraph()

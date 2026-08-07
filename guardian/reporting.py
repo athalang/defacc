@@ -42,13 +42,12 @@ def format_result_line(name: str, result: TranslationResult) -> str:
     return f"{status} {name} (c: {c_status}, rust iterations: {result.compilation.iterations})"
 
 
-def format_project_translation(results: List[dict]) -> str:
+def format_scc_translation(results: List[dict]) -> str:
     if not results:
         return "No SCCs translated."
-    lines = ["Project Translation Results:", ""]
+    lines = ["SCC Translation Results:", ""]
     for entry in results:
         translation: TranslationResult = entry["result"]
         header = f"SCC {entry['scc_index']}: {', '.join(entry['declarations'])}"
         lines.append(format_result_line(header, translation))
     return "\n".join(lines)
-

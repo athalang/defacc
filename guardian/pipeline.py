@@ -7,7 +7,7 @@ import networkx as nx
 
 from .compiler import CCompiler, RustCompiler, check_c_compiler_available, check_rustc_available
 from .dependency_graph import DeclarationRecord, SCCComponent
-from .project_scanner import build_project_graph
+from .project_scanner import build_source_graph
 
 @dataclass
 class CompilationResult:
@@ -87,17 +87,31 @@ class GUARDIANPipeline:
             c_compilation=c_compilation,
         )
 
-    def translate_project(self, compile_commands: Path, verbose: bool = True) -> List[dict]:
-        """Translate an entire project by iterating over SCCs from the project scanner."""
-        db_path = Path(compile_commands)
-        project_graph = build_project_graph(db_path)
-        components = project_graph.components()
+    def translate_file(self, source_path: Path, verbose: bool = True) -> List[dict]:
+        """Translate one C source file by iterating over SCCs in dependency order."""
+        path = Path(source_path)
+        return self.translate_source(
+            path.read_text(errors="ignore"),
+            source_filename=str(path),
+            verbose=verbose,
+        )
+
+    def translate_source(
+        self,
+        c_code: str,
+        *,
+        source_filename: str = "input.c",
+        verbose: bool = True,
+    ) -> List[dict]:
+        """Translate one C translation unit by iterating over SCCs in dependency order."""
+        source_graph = build_source_graph(c_code, source_filename=source_filename)
+        components = source_graph.components()
         if not components:
             if verbose:
                 print("No strongly connected components found for translation.")
             return []
 
-        component_dependencies = self._map_component_dependencies(project_graph.graph, components)
+        component_dependencies = self._map_component_dependencies(source_graph.graph, components)
         translated_declarations: Dict[int, List[dict]] = {}
         results: List[dict] = []
         for component in components:

@@ -14,7 +14,6 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "inspect-ai>=0.3.148",
     "networkx>=3.4.2",
-    "compiledb>=0.10.7",
     "typer>=0.25.1",
 ]
 

@@ -1,9 +1,7 @@
 import sys
 from pathlib import Path
-from typing import Optional
 
-from .project_runner import translate_compile_commands
-from .reporting import format_project_translation, format_translation_result, format_result_line
+from .reporting import format_scc_translation, format_translation_result, format_result_line
 from .tests.test_paper_examples import ALL_TEST_CASES
 
 def run_demo(pipeline, test_name: str = "scanf_two_ints"):
@@ -29,15 +27,10 @@ def run_demo(pipeline, test_name: str = "scanf_two_ints"):
     return result
 
 
-def run_project_demo(pipeline, compile_commands: "str | Path", verbose: bool = True, output_path: Optional[Path] = None):
-    path = Path(compile_commands)
-    results = translate_compile_commands(
-        path,
-        pipeline=pipeline,
-        verbose=verbose,
-        output_rust=output_path,
-    )
-    print(format_project_translation(results))
+def run_file_demo(pipeline, source_path: "str | Path", verbose: bool = True):
+    path = Path(source_path)
+    results = pipeline.translate_file(path, verbose=verbose)
+    print(format_scc_translation(results))
     return results
 
 
