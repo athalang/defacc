@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "id": "juliet-cwe190-add-i32",
+      "source": "juliet",
+      "source_case_id": "CWE190_Integer_Overflow__int32_t_add_01",
+      "c_file": "../../external-corpus/juliet/CWE190_Integer_Overflow__int32_t_add_01.c",
+      "function": "target",
+      "args": [
+        {
+          "name": "a",
+          "kind": "scalar",
+          "c_type": "int32_t",
+          "source_field": "a",
+          "value_type": "i32"
+        },
+        {
+          "name": "b",
+          "kind": "scalar",
+          "c_type": "int32_t",
+          "source_field": "b",
+          "value_type": "i32"
+        }
+      ],
+      "return_type": "int32_t",
+      "mutated_outputs": [],
+      "preconditions": [],
+      "timeout_ms": 1000,
+      "sanitizers": ["address", "undefined"],
+      "expected_class": "security"
+    }
+  ]
+}

@@ -147,6 +147,24 @@ class GUARDIANPipeline:
 
         return results
 
+    def prepare_differential_eval(
+        self,
+        manifest_path: Path,
+        output_root: Path,
+        *,
+        verbose: bool = False,
+    ) -> List[List[str]]:
+        """Translate manifest cases and generate function-level fuzzing artifacts."""
+        from .evals.manifest import load_manifest
+        from .evals.runner import prepare_cases
+
+        return prepare_cases(
+            load_manifest(Path(manifest_path)),
+            Path(output_root),
+            pipeline=self,
+            verbose=verbose,
+        )
+
     def _compile_c_source(self, c_code: str, reporter: Reporter) -> CompilationResult:
         reporter("Step 0: Compiling original C...")
 

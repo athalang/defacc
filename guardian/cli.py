@@ -23,10 +23,44 @@ def run(
         "--input-c",
         help="Translate one C source file using single-file SCC ordering",
     ),
+    eval_manifest: Path | None = typer.Option(
+        None,
+        "--eval-manifest",
+        help="Prepare or run function-level differential fuzzing evals from a manifest",
+    ),
+    eval_out: Path = typer.Option(
+        Path("artifacts/evals"),
+        "--eval-out",
+        help="Directory for generated eval artifacts",
+    ),
+    eval_dry_run: bool = typer.Option(
+        False,
+        "--eval-dry-run",
+        help="Print AFL++ commands without translating or reading corpus files",
+    ),
 ) -> None:
+    if not isinstance(eval_manifest, (Path, str)):
+        eval_manifest = None
+    if not isinstance(eval_out, (Path, str)):
+        eval_out = Path("artifacts/evals")
+    eval_out = Path(eval_out)
+    eval_dry_run = eval_dry_run if isinstance(eval_dry_run, bool) else False
+
+    if eval_manifest and eval_dry_run:
+        from guardian.evals.manifest import load_manifest
+        from guardian.evals.runner import afl_commands
+
+        for command in afl_commands(load_manifest(Path(eval_manifest)), eval_out):
+            print(" ".join(command))
+        return
+
     pipeline = build_pipeline()
 
-    if input_c:
+    if eval_manifest:
+        commands = pipeline.prepare_differential_eval(Path(eval_manifest), eval_out)
+        for command in commands:
+            print(" ".join(command))
+    elif input_c:
         run_file_demo(pipeline, input_c)
     elif all_:
         run_all_tests(pipeline)
@@ -36,3 +70,7 @@ def run(
 
 def main() -> None:
     typer.run(run)
+
+
+if __name__ == "__main__":
+    main()
