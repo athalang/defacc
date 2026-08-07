@@ -203,48 +203,6 @@ def generate_report(logs, output_file: Path):
 
         report.append("\n")
 
-    # Key Findings
-    report.append("## Key Findings\n\n")
-
-    if guardian_basic and guardian_adv:
-        g_basic = analyze_results(guardian_basic["data"])
-        g_adv = analyze_results(guardian_adv["data"])
-
-        report.append("### GUARDIAN's Defensive Advantages\n\n")
-        report.append("1. **Higher Compilation Success**: GUARDIAN's rule-augmented retrieval and structured summarization ")
-        report.append("improve translation accuracy\n")
-        report.append("2. **Reduced Unsafe Code**: Static rule analysis prevents LLM from generating unsafe constructs\n")
-        report.append("3. **Iterative Refinement**: Error-driven feedback improves code quality through bounded iteration\n")
-        report.append("4. **Consistent Performance**: Works on both basic and adversarial (security-focused) test cases\n\n")
-
-    report.append("### Defensive Framework Impact\n\n")
-    report.append("GUARDIAN demonstrates that **defensive mechanisms can be built directly into LLM-based code generation**:\n\n")
-    report.append("- **Prevention Layer**: Static analysis detects unsafe patterns before translation\n")
-    report.append("- **Detection Layer**: Compilation verification catches safety violations\n")
-    report.append("- **Correction Layer**: Bounded refinement fixes issues without degradation\n\n")
-
-    report.append("This approach accelerates defensive development by making AI code generation **safe by default**.\n\n")
-
-    # Methodology
-    report.append("## Methodology\n\n")
-    report.append("**Vanilla LLM**: Direct prompting with simple instruction to translate C to Rust\n")
-    report.append("- No static analysis\n")
-    report.append("- No example retrieval\n")
-    report.append("- No structured summarization\n")
-    report.append("- No error-driven refinement\n\n")
-
-    report.append("**GUARDIAN**: Full defensive pipeline\n")
-    report.append("- Static rule analysis (libclang AST)\n")
-    report.append("- BM25 example retrieval (intra-category)\n")
-    report.append("- Structured code summarization\n")
-    report.append("- Error-driven refinement (max 3 iterations)\n\n")
-
-    report.append("**Scoring**:\n")
-    report.append("- **C (Correct)**: Compiles successfully with 0 unsafe blocks\n")
-    report.append("- **P (Partial)**: Compiles but contains unsafe constructs\n")
-    report.append("- **I (Incorrect)**: Failed to compile\n\n")
-
-    # Write report
     report_text = "".join(report)
     output_file.write_text(report_text)
 

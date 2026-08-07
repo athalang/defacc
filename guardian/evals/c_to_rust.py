@@ -8,7 +8,7 @@ from inspect_ai import Task, task
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState
 
-from guardian.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
+from guardian.examples.paper_cases import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
 
 from ._common import count_unsafe, create_samples, guardian_translate
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from .pipeline import TranslationResult
+from .translation import TranslationResult
 
 
 def format_translation_result(result: TranslationResult) -> str:

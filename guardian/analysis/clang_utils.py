@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Generator, List, Optional, Set
 
-from clang.cindex import Cursor, CursorKind, TokenKind, TranslationUnit, Index
+from clang.cindex import Cursor, CursorKind, Index, TokenKind, TranslationUnit
 
 
 class LibclangContext:
@@ -83,11 +83,7 @@ def normalize_identifier(name: str) -> str:
 def cursor_in_files(cursor: Cursor, target_files: Set[str]) -> bool:
     """Return True when a cursor belongs to one of the allowed files."""
     loc = cursor.location
-    return bool(
-        loc
-        and loc.file
-        and normalize_path(loc.file.name) in target_files
-    )
+    return bool(loc and loc.file and normalize_path(loc.file.name) in target_files)
 
 
 def extract_source(cursor: Cursor, c_code: str, target_files: Set[str]) -> str:

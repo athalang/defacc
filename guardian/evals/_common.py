@@ -5,22 +5,10 @@ from typing import Callable, Optional
 from inspect_ai.dataset import Sample
 from inspect_ai.solver import Generate, TaskState, solver
 
+from guardian.evals.utils import count_unsafe
 from guardian.llm import build_lm
 from guardian.pipeline import GUARDIANPipeline
-from guardian.tests.test_paper_examples import ALL_TEST_CASES
-
-
-def count_unsafe(rust_code: str) -> tuple[int, int, int, int]:
-    """Count unsafe constructs in generated Rust code.
-
-    Returns:
-        Tuple of (unsafe_blocks, unsafe_fn, unsafe_impl, total_unsafe).
-    """
-    unsafe_blocks = rust_code.count("unsafe {") + rust_code.count("unsafe{")
-    unsafe_fn = rust_code.count("unsafe fn")
-    unsafe_impl = rust_code.count("unsafe impl")
-    total_unsafe = unsafe_blocks + unsafe_fn + unsafe_impl
-    return unsafe_blocks, unsafe_fn, unsafe_impl, total_unsafe
+from guardian.examples.paper_cases import ALL_TEST_CASES
 
 
 def create_samples(

@@ -1,4 +1,4 @@
-"""Test cases"""
+"""Paper example C snippets used by demos and evals."""
 
 # Test case 1: scanf with three integers and compute average
 TEST_SCANF_TWO_INTS = """

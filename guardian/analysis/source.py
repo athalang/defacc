@@ -5,8 +5,8 @@ Build dependency metadata for a single C source file.
 from pathlib import Path
 from typing import List, Optional
 
-from guardian.clang_utils import LibclangContext, normalize_path
-from guardian.dependency_graph import (
+from .clang_utils import LibclangContext, normalize_path
+from .graph import (
     ProjectGraph,
     ProjectGraphBuilder,
     build_dependency_graph,

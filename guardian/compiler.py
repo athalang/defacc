@@ -82,7 +82,7 @@ class CCompiler:
         Compile C code and return (success, errors/output).
         """
         try:
-            with tempfile.TemporaryDirectory(prefix="irene-c-") as tmpdir:
+            with tempfile.TemporaryDirectory(prefix="guardian-c-") as tmpdir:
                 if self._detect_has_main(c_code):
                     output = self.compile_executable(
                         c_code,
@@ -247,7 +247,7 @@ class RustCompiler:
             Tuple of (compilation_success, error_messages)
         """
         try:
-            with tempfile.TemporaryDirectory(prefix="irene-rs-") as tmpdir:
+            with tempfile.TemporaryDirectory(prefix="guardian-rs-") as tmpdir:
                 output = self.compile_executable(
                     rust_code,
                     Path(tmpdir) / _default_executable_name(),

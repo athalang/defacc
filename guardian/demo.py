@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 from .reporting import format_scc_translation, format_translation_result, format_result_line
-from .tests.test_paper_examples import ALL_TEST_CASES
+from .examples.paper_cases import ALL_TEST_CASES
 
 def run_demo(pipeline, test_name: str = "scanf_two_ints"):
     if test_name not in ALL_TEST_CASES:

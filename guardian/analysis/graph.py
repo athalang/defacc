@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from clang.cindex import Cursor, CursorKind, TranslationUnit
 import networkx as nx
 
-from guardian.clang_utils import (
+from .clang_utils import (
     LibclangContext,
     cursor_in_files,
     cursor_kind_slug,
@@ -140,6 +140,7 @@ def collect_translation_unit_data(
 
     return TranslationUnitData(records=records, edges=edges)
 
+
 def _is_relevant_definition(node: Cursor) -> bool:
     return node.kind in {
         CursorKind.STRUCT_DECL,
@@ -148,8 +149,10 @@ def _is_relevant_definition(node: Cursor) -> bool:
         CursorKind.TYPEDEF_DECL,
     } and node.is_definition()
 
+
 def _is_in_target_file(cursor: Cursor, target_files: Set[str]) -> bool:
     return cursor_in_files(cursor, target_files)
+
 
 def _collect_definitions(
     translation_unit: TranslationUnit, target_files: Set[str]
@@ -164,10 +167,11 @@ def _collect_definitions(
         ):
             continue
         name = normalize_identifier(child.spelling)
-        if name.startswith("("):  # skip clang's synthesized "(unnamed ...)" nodes
+        if name.startswith("("):
             continue
         definitions[name] = child
     return definitions
+
 
 def build_dependency_graph(
     c_code: Optional[str],
@@ -176,9 +180,7 @@ def build_dependency_graph(
     translation_unit: Optional[TranslationUnit] = None,
 ) -> Tuple[nx.DiGraph, Dict[str, Cursor]]:
     """
-    Nodes are labelled with a "kind" attribute (struct, enum, typedef, function).
-    Edges indicate that the source function depends on the target function via a
-    call.
+    Nodes are labelled with a "kind" attribute. Edges indicate declaration dependencies.
     """
     if translation_unit is None:
         if c_code is None:
@@ -194,27 +196,25 @@ def build_dependency_graph(
         graph.add_node(
             source_name,
             kind=cursor_kind_slug(source_cursor.kind),
-            location={"line": source_cursor.location.line, "column": source_cursor.location.column},
+            location={
+                "line": source_cursor.location.line,
+                "column": source_cursor.location.column,
+            },
         )
         for node in context.walk_relevant_nodes(source_cursor):
-            if node is source_cursor:
-                continue
-
-            target_name = ""
-            reason = ""
-            if node.kind != CursorKind.CALL_EXPR:
+            if node is source_cursor or node.kind != CursorKind.CALL_EXPR:
                 continue
 
             target_name = normalize_identifier(context.get_called_function_name(node))
-            reason = "call"
             if target_name and target_name in definitions:
-                graph.add_edge(source_name, target_name, reason=reason)
+                graph.add_edge(source_name, target_name, reason="call")
 
     return graph, definitions
 
+
 def dependency_order(graph: nx.DiGraph) -> List[List[str]]:
     """
-    Return the condensation graph's dependency-first component order. 
+    Return the condensation graph's dependency-first component order.
     Member order is left as provided by NetworkX.
     """
     condensation = nx.condensation(graph)
@@ -222,4 +222,3 @@ def dependency_order(graph: nx.DiGraph) -> List[List[str]]:
         list(condensation.nodes[comp]["members"])
         for comp in nx.topological_sort(condensation.reverse(copy=False))
     ]
-

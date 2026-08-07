@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "guardian"
 version = "0.1.0"
-description = "GUARDIAN: Guarded Universal Architecture for Defensive Interpretation And traNslation - A framework for safe LLM-based C-to-Rust translation with defensive mechanisms"
+description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -17,5 +17,9 @@ dependencies = [
     "typer>=0.25.1",
 ]
 
-[tool.setuptools]
-packages = ["guardian"]
+[project.scripts]
+guardian = "guardian.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["guardian*"]
+exclude = ["tests*"]

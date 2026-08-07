@@ -2,10 +2,16 @@ import unittest
 
 import networkx as nx
 
-from guardian.clang_utils import LibclangContext
-from guardian.dependency_graph import SCCComponent, build_dependency_graph, dependency_order
-from guardian.pipeline import GUARDIANPipeline
-from guardian.project_scanner import build_source_graph
+from guardian.analysis import (
+    LibclangContext,
+    SCCComponent,
+    build_dependency_context,
+    build_dependency_graph,
+    build_source_graph,
+    dependency_order,
+    map_component_dependencies,
+)
+from guardian.translation import build_translation_prompt, build_rust_partial, compose_rust_fragment
 
 
 class DependencyGraphTests(unittest.TestCase):
@@ -78,8 +84,7 @@ class DependencyGraphTests(unittest.TestCase):
             SCCComponent(index=2, declaration_ids=["caller-id"], declarations=[]),
         ]
 
-        dependencies = GUARDIANPipeline._map_component_dependencies(
-            None,
+        dependencies = map_component_dependencies(
             graph,
             components,
         )
@@ -99,8 +104,7 @@ class DependencyGraphTests(unittest.TestCase):
             ]
         }
 
-        context = GUARDIANPipeline._build_dependency_context(
-            None,
+        context = build_dependency_context(
             component_index=2,
             component_dependencies=dependencies,
             translated_declarations=translated,
@@ -111,16 +115,14 @@ class DependencyGraphTests(unittest.TestCase):
         self.assertNotIn("callee (function)", context)
 
     def test_rust_partial_is_only_dependency_code(self) -> None:
-        partial = GUARDIANPipeline._build_rust_partial(
-            None,
+        partial = build_rust_partial(
             dependency_context="pub fn callee() -> i32 { 1 }",
         )
 
         self.assertEqual("pub fn callee() -> i32 { 1 }", partial)
 
     def test_compose_rust_fragment_appends_completion_after_dependencies(self) -> None:
-        combined = GUARDIANPipeline._compose_rust_fragment(
-            None,
+        combined = compose_rust_fragment(
             "pub fn callee() -> i32 { 1 }",
             "pub fn caller() -> i32 { callee() }",
         )
@@ -131,8 +133,7 @@ class DependencyGraphTests(unittest.TestCase):
         )
 
     def test_translation_prompt_is_minimal_completion_prompt(self) -> None:
-        prompt = GUARDIANPipeline._build_translation_prompt(
-            None,
+        prompt = build_translation_prompt(
             c_code="int caller(void) { return callee(); }",
             rust_partial="pub fn callee() -> i32 { 1 }",
         )

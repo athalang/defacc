@@ -16,10 +16,12 @@ from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState, solver, Generate
 
 from guardian.compiler import RustCompiler
+from guardian.evals.utils import count_unsafe
+from guardian.examples.paper_cases import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
 from guardian.llm import build_lm
-from guardian.tests.test_paper_examples import ALL_TEST_CASES, BASIC_TEST_CASES, ADVERSARIAL_TEST_CASES
+from guardian.translation import build_vanilla_translation_prompt, clean_llm_response
 
-from ._common import count_unsafe, create_samples, guardian_translate
+from ._common import create_samples, guardian_translate
 
 _guardian_solver = guardian_translate()
 
@@ -43,32 +45,11 @@ def vanilla_llm_translate():
 
         c_code = ALL_TEST_CASES[test_name]
 
-        # Simple vanilla prompt
-        vanilla_prompt = f"""Translate the following C code to safe Rust code.
-
-Requirements:
-- Use only Rust standard library (no external crates)
-- Ensure memory safety
-- Return ONLY valid Rust source code (no markdown, no explanations)
-
-C code:
-```c
-{c_code}
-```
-
-Rust code:"""
+        vanilla_prompt = build_vanilla_translation_prompt(c_code)
 
         lm = build_lm()
         response = lm(vanilla_prompt)
-
-        rust_code = str(response).strip()
-        if rust_code.startswith("```rust"):
-            rust_code = rust_code[7:]
-        if rust_code.startswith("```"):
-            rust_code = rust_code[3:]
-        if rust_code.endswith("```"):
-            rust_code = rust_code[:-3]
-        rust_code = rust_code.strip()
+        rust_code = clean_llm_response(response)
 
         compiler = RustCompiler()
         compiled, errors = compiler.compile(rust_code)
